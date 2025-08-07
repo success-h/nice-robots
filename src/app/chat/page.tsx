@@ -4,16 +4,14 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
-  Phone,
-  MoreHorizontal,
   Mic,
-  MicOff,
   Send,
-  Settings,
   Volume2,
   VolumeX,
   X,
   Square,
+  Plus,
+  MessageSquare,
 } from 'lucide-react';
 import useUserStore, {
   Message,
@@ -21,6 +19,7 @@ import useUserStore, {
 } from '@/zustand/useStore';
 import { useApi } from '@/hooks/useApi';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function ChatPage() {
   const [inputMessage, setInputMessage] = useState('');
@@ -30,6 +29,22 @@ export default function ChatPage() {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check for mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth < 768) {
+        setSidebarOpen(false);
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -37,6 +52,7 @@ export default function ChatPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const abortController = useRef<AbortController | null>(null);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const {
     currentChat,
@@ -51,227 +67,9 @@ export default function ChatPage() {
     chats,
   } = useUserStore();
 
-  const { handleModerationFailure, handleModerationResponse } =
-    useModerationHandling();
-  const router = useRouter();
+  const { handleModerationFailure } = useModerationHandling();
 
-  // Load chat history
-  const loadChatHistory = async () => {
-    try {
-      const response = await useApi(
-        `/chats/by-character/${character?.id}`,
-        {
-          method: 'GET',
-        },
-        user?.access_token
-      );
-      const data = await response.json();
-      console.log({ data });
-      setCurrentChat(data);
-      setChats(data);
-      return data;
-    } catch (error) {
-      console.log('err:', error);
-      return error;
-    }
-  };
-
-  useEffect(() => {
-    if (character?.id) {
-      loadChatHistory();
-    }
-  }, [character]);
-
-  // Auto-scroll to bottom of messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [currentChat?.chatHistory]);
-
-  const transcribeAudio = async (audioBlob: Blob) => {
-    try {
-      if (!audioBlob || audioBlob.size === 0) {
-        throw new Error('Audio blob is empty or invalid');
-      }
-
-      console.log('Audio blob info:', {
-        size: audioBlob.size,
-        type: audioBlob.type,
-      });
-
-      const formData = new FormData();
-      formData.append('voice', audioBlob, 'recording.webm');
-      formData.append('data_type', 'binary_audio');
-      formData.append('model_name', 'gpt_4o_mini_transcribe');
-      formData.append('file_name', 'recording.webm');
-
-      // Direct fetch instead of useApi
-      const response = await useApi('/transcription', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          Authorization: `Bearer ${user?.access_token}`, // Adjust based on your auth format
-        },
-      });
-
-      console.log('Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.log('Error response body:', errorText);
-        throw new Error(
-          `Transcription failed: ${response.status} - ${errorText}`
-        );
-      }
-
-      const result = await response.json();
-      return result.text || result.data?.text;
-    } catch (error) {
-      console.error('Transcription error:', error);
-      throw error;
-    }
-  };
-  const startRecording = async () => {
-    if (isRecording || isTranscribing) return;
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100,
-        },
-      });
-
-      // Reset chunks
-      audioChunksRef.current = [];
-
-      // Create MediaRecorder
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus',
-      });
-      mediaRecorderRef.current = mediaRecorder;
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        // Stop all tracks to release microphone
-        stream.getTracks().forEach((track) => track.stop());
-
-        // Process recorded audio
-        if (audioChunksRef.current.length > 0) {
-          const audioBlob = new Blob(audioChunksRef.current, {
-            type: 'audio/webm;codecs=opus',
-          });
-
-          console.log('Created audio blob:', {
-            size: audioBlob.size,
-            type: audioBlob.type,
-          });
-
-          // Start transcription
-          setIsTranscribing(true);
-
-          try {
-            const transcribedText = await transcribeAudio(audioBlob);
-
-            if (transcribedText && transcribedText.trim()) {
-              // Append to existing input message if there's already text
-              setInputMessage((prev) => {
-                const newText = transcribedText.trim();
-                if (prev.trim()) {
-                  return prev + ' ' + newText;
-                }
-                return newText;
-              });
-            }
-          } catch (error) {
-            console.error('Failed to transcribe audio:', error);
-            // You could show an error message to user here
-          } finally {
-            setIsTranscribing(false);
-          }
-        } else {
-          console.warn('No audio chunks recorded');
-          setIsTranscribing(false);
-        }
-      };
-
-      mediaRecorder.onerror = (error) => {
-        console.error('MediaRecorder error:', error);
-        setIsRecording(false);
-        setIsTranscribing(false);
-        stream.getTracks().forEach((track) => track.stop());
-      };
-
-      // Start recording
-      mediaRecorder.start(1000); // Collect data every second
-      setIsRecording(true);
-      setRecordingTime(0);
-
-      // Start timer
-      recordingTimerRef.current = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
-
-      console.log('Recording started successfully');
-    } catch (error) {
-      console.error('Failed to start recording:', error);
-      setIsRecording(false);
-    }
-  };
-
-  const stopRecording = () => {
-    setInputMessage('');
-    if (!isRecording || !mediaRecorderRef.current) return;
-
-    try {
-      // Stop the MediaRecorder - this will trigger the onstop event
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current = null;
-    } catch (error) {
-      console.error('Failed to stop recording:', error);
-    }
-
-    // Clear timer
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
-
-    setIsRecording(false);
-    setRecordingTime(0);
-  };
-
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
-
-  // Toggle response type
-  const toggleResponseType = async () => {
-    try {
-      await useApi(
-        `/chats/${currentChat?.data.id}/toggle-return-type`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-        user?.access_token
-      );
-      loadChatHistory();
-    } catch (error) {
-      console.error('Failed toggling return type:', error);
-    }
-  };
-
-  // Handle sending messages with real-time streaming
+  // Send message function with full implementation
   const sendMessage = async () => {
     if (!inputMessage.trim() || isTyping) return;
 
@@ -286,7 +84,7 @@ export default function ChatPage() {
     setIsTyping(true);
 
     // Initialize assistant message
-    let assistantMessage: Message = {
+    const assistantMessage: Message = {
       role: 'assistant',
       content: '',
     };
@@ -311,7 +109,7 @@ export default function ChatPage() {
       const contentType = response.headers.get('content-type');
 
       if (contentType?.includes('text/event-stream')) {
-        // Handle streaming response with real-time updates
+        // Handle streaming response
         if (!response.body) {
           throw new Error('No response body available for streaming');
         }
@@ -327,23 +125,18 @@ export default function ChatPage() {
           while (true) {
             const { done, value } = await reader.read();
 
-            if (done) {
-              break;
-            }
+            if (done) break;
 
-            // Decode the chunk and add to buffer
             const chunk = decoder.decode(value, { stream: true });
             buffer += chunk;
 
-            // Process complete lines
             const lines = buffer.split('\n');
-            buffer = lines.pop() || ''; // Keep incomplete line in buffer
+            buffer = lines.pop() || '';
 
             for (const line of lines) {
               const trimmedLine = line.trim();
               if (!trimmedLine) continue;
 
-              // Check for SSE event type
               if (trimmedLine.startsWith('event: ')) {
                 eventType = trimmedLine.substring(7);
               } else if (trimmedLine.startsWith('data: ')) {
@@ -352,7 +145,6 @@ export default function ChatPage() {
                   try {
                     const parsed = JSON.parse(jsonStr);
 
-                    // Check if this is an error event
                     if (eventType === 'error' || parsed.error) {
                       const moderationDetails = handleModerationFailure(
                         userMessage,
@@ -360,7 +152,6 @@ export default function ChatPage() {
                         parsed.details || []
                       );
 
-                      // Handle moderation response
                       const moderationResponse = await useApi(
                         `/moderation-resolutions/${currentChat?.data?.id}`,
                         {
@@ -402,14 +193,12 @@ export default function ChatPage() {
                         content = parsed.text;
                       }
 
-                      // Check for message_id for audio
                       if (parsed.message_id) {
                         messageId = parsed.message_id;
                       }
 
                       if (content) {
                         assistantMessage.content += content;
-                        // For text responses, show real-time streaming
                         if (response_type === 'text') {
                           updateChatHistory(
                             assistantMessage,
@@ -428,13 +217,11 @@ export default function ChatPage() {
 
           // After streaming is complete
           if (response_type === 'voice') {
-            // For voice responses, show full text and play audio
             updateChatHistory(assistantMessage, currentChat?.data.id!);
             if (messageId) {
               await fetchAudioStream(messageId);
             }
           } else if (response_type === 'text' && messageId) {
-            // For text responses, just fetch audio for potential playback
             await fetchAudioStream(messageId);
           }
         } finally {
@@ -445,7 +232,6 @@ export default function ChatPage() {
         if (!response.ok) {
           const errorData = await response.json();
           if (errorData.reason === 'filtering' && errorData.details) {
-            // Handle moderation failure
             const moderationDetails = handleModerationFailure(
               userMessage,
               currentChat?.data?.id!,
@@ -574,162 +360,321 @@ export default function ChatPage() {
     }
     setIsSpeaking(false);
   };
+  const router = useRouter();
 
-  // Handle Enter key press
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height =
+        textareaRef.current.scrollHeight + 'px';
+    }
+  }, [inputMessage]);
+
+  // Load chat history
+  const loadChatHistory = async () => {
+    try {
+      const response = await useApi(
+        `/chats/by-character/${character?.id}`,
+        { method: 'GET' },
+        user?.access_token
+      );
+      const data = await response.json();
+      setCurrentChat(data);
+      setChats(data);
+      return data;
+    } catch (error) {
+      console.log('Error loading chat:', error);
+      return error;
+    }
+  };
+
+  useEffect(() => {
+    if (character?.id) {
+      loadChatHistory();
+    }
+  }, [character]);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [currentChat?.chatHistory]);
+
+  // Audio transcription function (your existing implementation)
+  const transcribeAudio = async (audioBlob: Blob) => {
+    try {
+      if (!audioBlob || audioBlob.size === 0) {
+        throw new Error('Audio blob is empty or invalid');
+      }
+
+      const formData = new FormData();
+      formData.append('voice', audioBlob, 'recording.webm');
+      formData.append('data_type', 'binary_audio');
+      formData.append('model_name', 'gpt_4o_mini_transcribe');
+      formData.append('file_name', 'recording.webm');
+
+      const response = await useApi(
+        '/transcription',
+        {
+          method: 'POST',
+          body: formData,
+        },
+        user?.access_token
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Transcription failed: ${response.status} - ${errorText}`
+        );
+      }
+
+      const result = await response.json();
+      return result.text || result.data?.text;
+    } catch (error) {
+      console.error('Transcription error:', error);
+      throw error;
+    }
+  };
+
+  // Recording functions (your existing implementation)
+  const startRecording = async () => {
+    if (isRecording || isTranscribing) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100,
+        },
+      });
+
+      audioChunksRef.current = [];
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus',
+      });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+
+        if (audioChunksRef.current.length > 0) {
+          const audioBlob = new Blob(audioChunksRef.current, {
+            type: 'audio/webm;codecs=opus',
+          });
+
+          setIsTranscribing(true);
+
+          try {
+            const transcribedText = await transcribeAudio(audioBlob);
+            if (transcribedText && transcribedText.trim()) {
+              setInputMessage((prev) => {
+                const newText = transcribedText.trim();
+                return prev.trim() ? prev + ' ' + newText : newText;
+              });
+            }
+          } catch (error) {
+            console.error('Failed to transcribe audio:', error);
+          } finally {
+            setIsTranscribing(false);
+          }
+        } else {
+          setIsTranscribing(false);
+        }
+      };
+
+      mediaRecorder.start(1000);
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+      setIsRecording(false);
+    }
+  };
+
+  const stopRecording = () => {
+    if (!isRecording || !mediaRecorderRef.current) return;
+
+    try {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    } catch (error) {
+      console.error('Failed to stop recording:', error);
+    }
+
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+
+    setIsRecording(false);
+    setRecordingTime(0);
+  };
+
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  // Toggle response type
+  const toggleResponseType = async () => {
+    try {
+      await useApi(
+        `/chats/${currentChat?.data.id}/toggle-return-type`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+        user?.access_token
+      );
+      loadChatHistory();
+    } catch (error) {
+      console.error('Failed toggling return type:', error);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
   };
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (mediaRecorderRef.current && isRecording) {
-        mediaRecorderRef.current.stop();
-      }
-      if (recordingTimerRef.current) {
-        clearInterval(recordingTimerRef.current);
-      }
-    };
-  }, []);
-
   if (!isLoggedIn || !character || !currentChat) {
-    return null; // Will redirect
+    return null;
   }
 
   return (
-    <div className="flex h-screen bg-gray-900 text-white">
-      {/* Left Sidebar - Character List */}
-      <div className="w-80 bg-gray-800 border-r border-gray-700 flex flex-col">
-        <div className="p-4 border-b border-gray-700">
-          <div className="flex items-center space-x-3 mb-4">
-            <button
-              onClick={() => router.push('/')}
-              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <h2 className="text-xl font-bold">Chat</h2>
+    <div className="flex h-screen bg-gray-900">
+      {/* Mobile Overlay */}
+      {isMobile && sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black opacity-50 z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div
+        className={`
+        ${isMobile ? 'fixed left-0 top-0 h-full z-50' : 'relative'}
+        ${sidebarOpen ? (isMobile ? 'w-80' : 'w-64') : 'w-0'} 
+        transition-all duration-300 bg-gray-900 border-r border-gray-700 flex flex-col overflow-hidden
+        ${isMobile && !sidebarOpen ? 'translate-x-full' : 'translate-x-0'}
+      `}
+      >
+        {/* Sidebar Header */}
+        <div className="p-3 border-b border-gray-700 py-4">
+          <Link
+            href={'/'}
+            className="flex items-center w-full p-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            <span className="text-sm font-medium">New chat</span>
+          </Link>
+        </div>
+
+        {/* Chat List */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-2 space-y-1">
+            {chats?.map((chat, index) => (
+              <button
+                key={index}
+                onClick={() => {
+                  setCharacter(chat?.data?.relationships?.character);
+                  setCurrentChat(chat);
+                }}
+                className={`flex cursor-pointer items-center w-full p-3 text-left rounded-lg transition-colors group ${
+                  currentChat?.data?.id === chat?.data?.id
+                    ? 'bg-gray-700 text-gray-100'
+                    : 'text-gray-300 hover:bg-gray-700'
+                }`}
+              >
+                <Image
+                  src={chat?.data?.relationships?.character?.attributes?.avatar}
+                  alt={chat?.data?.relationships?.character?.attributes.name}
+                  width={32}
+                  height={32}
+                  className="rounded-full mr-3 flex-shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {chat?.data?.relationships?.character?.attributes.name}
+                  </p>
+                  <p className="text-xs text-gray-400 truncate">
+                    {chat?.chatHistory && chat?.chatHistory?.length > 0
+                      ? chat?.chatHistory[
+                          chat?.chatHistory?.length - 1
+                        ].content.slice(0, 30) + '...'
+                      : 'New conversation'}
+                  </p>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Current Active Chat */}
-        {currentChat && (
-          <div className="p-4 border-b border-gray-700">
-            <h3 className="text-sm font-semibold text-gray-400 mb-3">
-              CURRENT CHAT
-            </h3>
-            <div className="flex items-center space-x-3 p-3 bg-pink-500/20 border border-pink-500/30 rounded-lg">
-              <Image
-                src={character.attributes.avatar}
-                alt={character.attributes.name}
-                width={40}
-                height={40}
-                className="rounded-full"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold truncate">
-                  {character.attributes.name}
-                </p>
-                <p className="text-sm text-gray-400 truncate">
-                  {isTyping
-                    ? 'Typing...'
-                    : isSpeaking
-                    ? 'Speaking...'
-                    : 'Online'}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* All Active Chats */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-4">
-            <h3 className="text-sm font-semibold text-gray-400 mb-3">
-              ALL CHATS
-            </h3>
-            <div className="space-y-2">
-              {chats?.map((chat, index) => (
-                <div
-                  key={index}
-                  onClick={() => {
-                    setCharacter(chat?.data?.relationships?.character);
-                    setCurrentChat(chat);
-                  }}
-                  className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                    currentChat?.data?.id === chat?.data?.id
-                      ? 'bg-pink-500/20 border border-pink-500/30'
-                      : 'hover:bg-gray-700'
-                  }`}
-                >
-                  <Image
-                    src={
-                      chat?.data?.relationships?.character?.attributes?.avatar
-                    }
-                    alt={chat?.data?.relationships?.character?.attributes.name}
-                    width={40}
-                    height={40}
-                    className="rounded-full"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold truncate">
-                      {chat?.data?.relationships?.character?.attributes.name}
-                    </p>
-                    <p className="text-sm text-gray-400 truncate">
-                      {chat?.chatHistory && chat?.chatHistory?.length > 0
-                        ? chat?.chatHistory[
-                            chat?.chatHistory?.length - 1
-                          ].content.slice(0, 30) + '...'
-                        : 'New conversation'}
-                    </p>
-                  </div>
-                  <span className="text-xs text-gray-500">
-                    {currentChat?.data?.id === chat?.data?.id ? 'Active' : ''}
-                  </span>
-                </div>
-              ))}
+        {/* Sidebar Footer */}
+        <div className="p-3 border-t border-gray-700">
+          <div className="flex items-center space-x-3">
+            <Image
+              src={character?.attributes?.avatar || '/default-avatar.png'}
+              alt={character?.attributes?.name || 'User'}
+              width={32}
+              height={32}
+              className="rounded-full"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-100 truncate">
+                {character?.attributes?.name}
+              </p>
+              <p className="text-xs text-gray-400">
+                {isTyping ? 'Typing...' : isSpeaking ? 'Speaking...' : 'Online'}
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
-        {/* Chat Header */}
-        <div className="bg-gray-800 border-b border-gray-700 p-4">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col bg-gray-800">
+        {/* Header */}
+        <div className="border-b border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Image
-                src={character.attributes.avatar}
-                alt={character.attributes.name}
-                width={48}
-                height={48}
-                className="rounded-full"
-              />
-              <div>
-                <h3 className="font-semibold text-lg">
-                  {character.attributes.name}
-                </h3>
-                <p className="text-sm text-gray-400">
-                  {isTyping
-                    ? 'Typing...'
-                    : isSpeaking
-                    ? 'Speaking...'
-                    : 'Online'}
-                </p>
+              {!sidebarOpen && (
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="p-2  cursor-pointer text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
+                >
+                  <MessageSquare className="w-5 h-5" />
+                </button>
+              )}
+              <div className="flex items-center gap-x-1">
+                <h1 className="text-lg font-semibold text-gray-100">
+                  {character?.attributes?.name}
+                </h1>
+                <div className="bg-green-400 h-2 w-2 rounded-full"></div>
               </div>
             </div>
 
             <div className="flex items-center space-x-2">
-              <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
-                <Phone className="h-5 w-5 text-green-500" />
-              </button>
-
               {/* Response Type Toggle */}
-              <div className="flex items-center space-x-2 bg-gray-700 rounded-lg p-2">
+              <div className="flex items-center space-x-2 bg-gray-800 rounded-lg p-2">
                 <span className="text-xs text-gray-400">
                   {currentChat?.data?.attributes?.return_type || response_type}
                 </span>
@@ -740,183 +685,225 @@ export default function ChatPage() {
                     checked={response_type === 'voice'}
                     onChange={toggleResponseType}
                   />
-                  <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-pink-500"></div>
+                  <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                 </label>
               </div>
 
-              <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
-                <Settings className="h-5 w-5" />
-              </button>
-              <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
-                <MoreHorizontal className="h-5 w-5" />
-              </button>
+              {sidebarOpen && (
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-2 cursor-pointer text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+              )}
+              {/* <button className="p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors">
+                <Settings className="w-5 h-5" />
+              </button> */}
             </div>
           </div>
         </div>
 
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {currentChat.chatHistory?.map((message, index) => (
-            <div
-              key={index}
-              className={`flex ${
-                message.role === 'user' ? 'justify-end' : 'justify-start'
-              }`}
-            >
-              <div
-                className={`max-w-[70%] p-3 rounded-2xl ${
-                  message.role === 'user'
-                    ? 'bg-pink-500 text-white'
-                    : 'bg-gray-700 text-white'
-                }`}
-              >
-                <p className="whitespace-pre-wrap">{message.content}</p>
-                {message.moderationFailed && (
-                  <p className="text-xs text-red-300 mt-1">
-                    ⚠️ Message flagged
-                  </p>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {/* Typing Indicator */}
-          {isTyping && (
-            <div className="flex justify-start">
-              <div className="bg-gray-700 p-3 rounded-2xl">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-3xl mx-auto p-4 space-y-4">
+            {currentChat?.chatHistory?.map((message, index) => (
+              <div key={index} className="group">
+                <div
+                  className={`flex items-start space-x-3 ${
+                    message.role === 'user'
+                      ? 'flex-row-reverse space-x-reverse'
+                      : ''
+                  }`}
+                >
+                  <div className="flex-shrink-0">
+                    {message.role === 'assistant' ? (
+                      <Image
+                        src={character?.attributes?.avatar}
+                        alt={character?.attributes?.name}
+                        width={32}
+                        height={32}
+                        className="rounded-full"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                        <Image
+                          src={
+                            user?.data?.attributes?.avatar ||
+                            '/default-avatar.png'
+                          }
+                          alt="Profile"
+                          width={96}
+                          height={96}
+                          className="w-8 h-8 rounded-full mx-auto border-4 border-gray-700"
+                        />
+                      </div>
+                    )}
+                  </div>
                   <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                    style={{ animationDelay: '0.1s' }}
-                  ></div>
-                  <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                    style={{ animationDelay: '0.2s' }}
-                  ></div>
+                    className={`flex-1 max-w-[80%] ${
+                      message.role === 'user' ? 'text-right' : ''
+                    }`}
+                  >
+                    <div
+                      className={`inline-block p-3 rounded-lg ${
+                        message.role === 'user'
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-[#444454] text-white'
+                      }`}
+                    >
+                      <p className="text-sm whitespace-pre-wrap">
+                        {message.content}
+                      </p>
+                    </div>
+                    {message.moderationFailed && (
+                      <p className="text-xs text-red-500 mt-1">
+                        ⚠️ Message flagged
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            ))}
 
-          <div ref={messagesEndRef} />
+            {/* Typing Indicator */}
+            {isTyping && (
+              <div className="flex items-start space-x-3">
+                <Image
+                  src={character?.attributes?.avatar}
+                  alt={character?.attributes?.name}
+                  width={32}
+                  height={32}
+                  className="rounded-full"
+                />
+                <div className="bg-gray-800 rounded-lg p-3">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div
+                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                      style={{ animationDelay: '0.1s' }}
+                    ></div>
+                    <div
+                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                      style={{ animationDelay: '0.2s' }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
         </div>
 
         {/* Input Area */}
-        <div className="bg-gray-800 border-t border-gray-700 p-4">
-          <div className="flex items-end space-x-3">
-            {/* Voice Recording Button */}
-            <div className="relative">
-              <button
-                onClick={isRecording ? stopRecording : startRecording}
-                disabled={isTranscribing}
-                className={`p-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  isRecording
-                    ? 'bg-red-500 hover:bg-red-600 animate-pulse'
-                    : isTranscribing
-                    ? 'bg-yellow-500'
-                    : 'bg-gray-600 hover:bg-gray-500'
-                }`}
-              >
-                {isRecording ? (
-                  <Square className="h-5 w-5" />
-                ) : isTranscribing ? (
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                ) : (
-                  <Mic className="h-5 w-5" />
-                )}
-              </button>
-
-              {/* Recording Time Display */}
-              {isRecording && (
-                <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-red-500 text-white text-xs px-3 py-1 rounded-full whitespace-nowrap animate-pulse">
-                  🎙️ {formatTime(recordingTime)}
-                </div>
-              )}
-            </div>
-
-            {/* Text Input */}
-            <div className="flex-1">
-              <textarea
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={
-                  isRecording
-                    ? 'Recording audio...'
-                    : isTranscribing
-                    ? 'Transcribing audio...'
-                    : 'Write a message or record audio...'
-                }
-                disabled={isRecording || isTranscribing}
-                className="w-full p-3 bg-gray-700 border border-gray-600 rounded-2xl resize-none focus:outline-none focus:border-pink-500 text-white placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                rows={1}
-                style={{ minHeight: '48px', maxHeight: '120px' }}
-              />
-            </div>
-
-            {/* Send Button */}
-            <button
-              onClick={sendMessage}
-              disabled={
-                !inputMessage.trim() ||
-                isTyping ||
-                isRecording ||
-                isTranscribing
-              }
-              className="p-3 bg-pink-500 hover:bg-pink-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-full transition-colors"
-            >
-              <Send className="h-5 w-5" />
-            </button>
-          </div>
-
-          {/* Status Messages */}
+        <div className="border-gray-700 py-4">
+          {/* Recording Status */}
           {(isRecording || isTranscribing) && (
-            <div className="mt-3 text-center">
+            <div className="mb-3 text-center">
               {isRecording && (
-                <div className="flex items-center justify-center space-x-2">
+                <div className="flex items-center justify-center space-x-2 text-red-500">
                   <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                  <p className="text-sm text-red-400">
-                    Recording audio... Click stop when finished
-                  </p>
+                  <span className="text-sm">
+                    Recording... {formatTime(recordingTime)}
+                  </span>
                 </div>
               )}
               {isTranscribing && (
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                  <p className="text-sm text-yellow-400">
-                    Transcribing your audio...
-                  </p>
+                <div className="flex items-center justify-center space-x-2 text-emerald-500">
+                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm">Transcribing...</span>
                 </div>
               )}
             </div>
           )}
 
-          {/* Control Buttons */}
-          {(isTyping || isSpeaking) && (
-            <div className="flex justify-center mt-2 space-x-3">
-              {isSpeaking && (
-                <button
-                  onClick={toggleMute}
-                  className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
-                >
-                  {isMuted ? (
-                    <VolumeX className="h-4 w-4" />
-                  ) : (
-                    <Volume2 className="h-4 w-4" />
-                  )}
-                  <span>{isMuted ? 'Unmute' : 'Mute'}</span>
-                </button>
-              )}
+          <div className="max-w-3xl mx-auto">
+            <div className="flex items-center space-x-3">
+              {/* Voice Recording Button */}
               <button
-                onClick={stopResponse}
-                className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
+                onClick={isRecording ? stopRecording : startRecording}
+                disabled={isTranscribing}
+                className={`flex-shrink-0 p-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isRecording
+                    ? 'bg-red-500 text-white animate-pulse'
+                    : isTranscribing
+                    ? 'bg-yellow-500 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
               >
-                <X className="h-4 w-4" />
-                <span>Stop</span>
+                {isRecording ? (
+                  <Square className="w-5 h-5" />
+                ) : isTranscribing ? (
+                  <div className="w-5 h-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <Mic className="w-5 h-5" />
+                )}
+              </button>
+
+              {/* Text Input */}
+              <div className="flex-1 relative">
+                <textarea
+                  ref={textareaRef}
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    isRecording
+                      ? 'Recording audio...'
+                      : isTranscribing
+                      ? 'Transcribing audio...'
+                      : 'Type a message...'
+                  }
+                  disabled={isRecording || isTranscribing}
+                  className="w-full p-3 pr-12 border border-gray-600 rounded-xl bg-zinc-800 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none disabled:opacity-50 disabled:cursor-not-allowed max-h-32"
+                  rows={1}
+                />
+              </div>
+
+              {/* Send Button */}
+              <button
+                onClick={sendMessage}
+                disabled={
+                  !inputMessage.trim() ||
+                  isTyping ||
+                  isRecording ||
+                  isTranscribing
+                }
+                className="flex-shrink-0 p-3 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+              >
+                <Send className="w-5 h-5" />
               </button>
             </div>
-          )}
+
+            {/* Control Buttons */}
+            {(isTyping || isSpeaking) && (
+              <div className="flex justify-center mt-3 space-x-2">
+                {isSpeaking && (
+                  <button
+                    onClick={() => setIsMuted(!isMuted)}
+                    className="px-3 py-1 bg-gray-700 text-gray-300 rounded-lg text-sm hover:bg-gray-600 transition-colors flex items-center space-x-1"
+                  >
+                    {isMuted ? (
+                      <VolumeX className="w-4 h-4" />
+                    ) : (
+                      <Volume2 className="w-4 h-4" />
+                    )}
+                    <span>{isMuted ? 'Unmute' : 'Mute'}</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setIsTyping(false);
+                    setIsSpeaking(false);
+                  }}
+                  className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-colors flex items-center space-x-1"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Stop</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

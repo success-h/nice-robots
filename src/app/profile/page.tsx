@@ -83,12 +83,12 @@ export default function ProfilePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!isLoggedIn) {
-      router.push('/');
-    }
-  }, [isLoggedIn, router]);
+  // // Redirect if not logged in
+  // useEffect(() => {
+  //   if (!isLoggedIn) {
+  //     router.push('/');
+  //   }
+  // }, [isLoggedIn, router]);
 
   const {
     control,
@@ -149,9 +149,9 @@ export default function ProfilePage() {
     }
   };
 
-  if (!isLoggedIn) {
-    return null; // Will redirect
-  }
+  // if (!isLoggedIn) {
+  //   return null; // Will redirect
+  // }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">

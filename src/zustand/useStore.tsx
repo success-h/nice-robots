@@ -244,12 +244,19 @@ const useUserStore = create<UserState>()(
           };
         });
       },
-
       setChats(chatData) {
         set((state) => {
           const existingChats = state.chats || [];
 
           if (!Array.isArray(chatData)) {
+            // Validate single chat data
+
+            //@ts-expect-error error
+            if (!chatData?.data?.id || chatData?.errors) {
+              console.warn('Invalid chat data received:', chatData);
+              return state; // Don't update state with invalid data
+            }
+
             const existingChatIndex = existingChats.findIndex(
               (chat) => chat?.data?.id === chatData?.data?.id
             );
@@ -288,7 +295,19 @@ const useUserStore = create<UserState>()(
 
           const updatedChats = [...existingChats];
 
-          chatData.forEach((newChat) => {
+          // Filter out invalid chat data and process valid ones
+          const validChats = chatData.filter(
+            (chat) => chat?.data?.id && !chat.errors
+          );
+
+          if (validChats.length !== chatData.length) {
+            console.warn(
+              'Some invalid chat data filtered out:',
+              chatData.length - validChats.length
+            );
+          }
+
+          validChats.forEach((newChat) => {
             const existingIndex = updatedChats.findIndex(
               (existingChat) => existingChat?.data?.id === newChat?.data?.id
             );

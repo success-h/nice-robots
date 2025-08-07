@@ -9,6 +9,7 @@ import { useApi } from '../hooks/useApi';
 import SignInModal from '../components/SignInModal';
 import Image from 'next/image';
 import { parseApiResponse } from '@/lib/utils';
+import Link from 'next/link';
 
 const getCharacters = async () => {
   try {
@@ -37,6 +38,7 @@ export default function HomePage() {
     setCharacter,
     response_type,
     isLoggedIn,
+    currentChat,
   } = useUserStore();
   const router = useRouter();
 
@@ -128,8 +130,6 @@ export default function HomePage() {
         );
         const data = await response.json();
         setCharacter(selectedCharacter);
-        // setChats(data);
-        // setCurrentChat(data);
         setLoading(false);
         router.push('/chat');
         return data;
@@ -174,15 +174,22 @@ export default function HomePage() {
           </h1>
 
           <nav className="space-y-4">
-            <button className="flex items-center space-x-3 w-full text-left p-3 rounded-lg bg-gray-800 text-white">
+            <button className="cursor-pointer flex items-center space-x-3 w-full text-left p-3 rounded-lg bg-gray-800 text-white">
               <User className="h-5 w-5" />
               <span>Explore</span>
             </button>
-            <button className="flex items-center space-x-3 w-full text-left p-3 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
+            <button
+              onClick={() => {
+                currentChat?.data
+                  ? router.push('/chat')
+                  : handleCharacterClick(sortedCharacters[0]);
+              }}
+              className="cursor-pointer flex items-center space-x-3 w-full text-left p-3 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+            >
               <span>💬</span>
               <span>Chat</span>
             </button>
-            <button className="flex items-center space-x-3 w-full text-left p-3 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
+            {/* <button className="flex items-center space-x-3 w-full text-left p-3 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
               <span>📁</span>
               <span>Collection</span>
             </button>
@@ -197,26 +204,31 @@ export default function HomePage() {
             <button className="flex items-center space-x-3 w-full text-left p-3 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
               <span>🤖</span>
               <span>My AI</span>
-            </button>
+            </button> */}
           </nav>
 
-          <div className="mt-8 pt-6 border-t border-gray-800">
+          {/* <div className="mt-8 pt-6 border-t border-gray-800">
             <button className="flex items-center space-x-3 w-full text-left p-3 rounded-lg text-pink-500 hover:bg-gray-800 transition-colors">
               <Crown className="h-5 w-5" />
               <span>Become Premium</span>
             </button>
-          </div>
+          </div> */}
 
           <div className="absolute bottom-6 left-6 right-6 space-y-3">
-            <button className="flex items-center space-x-3 w-full text-left text-gray-400 hover:text-white">
-              <span>🌐</span>
-              <span>English</span>
-            </button>
-            <button className="flex items-center space-x-3 w-full text-left text-gray-400 hover:text-white">
+            <Link
+              href={'/profile'}
+              className="flex  cursor-pointer items-center space-x-3 w-full text-left text-gray-400 hover:text-white"
+            >
+              <span>
+                <User className="w-4 h-4" />
+              </span>
+              <span>Profile settings</span>
+            </Link>
+            <button className="flex  cursor-pointer items-center space-x-3 w-full text-left text-gray-400 hover:text-white">
               <span>💬</span>
               <span>Discord</span>
             </button>
-            <button className="flex items-center space-x-3 w-full text-left text-gray-400 hover:text-white">
+            <button className="flex  cursor-pointer items-center space-x-3 w-full text-left text-gray-400 hover:text-white">
               <span>❓</span>
               <span>Help Center</span>
             </button>
@@ -230,7 +242,8 @@ export default function HomePage() {
         <header className="border-b border-gray-800 bg-black/95 backdrop-blur-sm sticky top-0 z-40">
           <div className="max-w-7xl mx-auto px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
-              <nav className="flex items-center space-x-8">
+              <div className=""></div>
+              {/* <nav className="flex items-center space-x-8">
                 <button className="flex items-center space-x-2 text-pink-500 border-b-2 border-pink-500 pb-4">
                   <span>👩</span>
                   <span>Girls</span>
@@ -243,16 +256,19 @@ export default function HomePage() {
                   <span>👨</span>
                   <span>Guys</span>
                 </button>
-              </nav>
+              </nav> */}
 
               <div className="flex items-center space-x-4">
                 {isLoggedIn ? (
                   <div className="flex items-center space-x-3">
-                    <button className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors">
+                    {/* <button className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors">
                       <Crown className="h-4 w-4" />
                       <span>Premium 70% OFF</span>
-                    </button>
-                    <div className="flex items-center space-x-2">
+                    </button> */}
+                    <Link
+                      href={'/profile'}
+                      className="flex items-center space-x-2"
+                    >
                       <Image
                         src={
                           user?.data?.attributes?.avatar ||
@@ -264,7 +280,7 @@ export default function HomePage() {
                         className="rounded-full"
                       />
                       <span>My Profile</span>
-                    </div>
+                    </Link>
                   </div>
                 ) : (
                   <div className="flex items-center space-x-3">
@@ -287,7 +303,7 @@ export default function HomePage() {
           </div>
         </header>
 
-        {/* Hero Banner */}
+        {/* Hero Banner
         <div className="relative">
           <div className="h-80 bg-gradient-to-r from-orange-400 to-pink-500 flex items-center justify-center">
             <Image
@@ -314,12 +330,12 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Characters Section */}
         <div className="px-6 lg:px-8 py-12">
           <h3 className="text-3xl font-bold mb-8">
-            Candy AI <span className="text-pink-500">Characters</span>
+            Nice Robots <span className="text-pink-500">Characters</span>
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -360,8 +376,8 @@ export default function HomePage() {
 
                     {/* Hover overlay */}
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                      <button className="bg-pink-500 hover:bg-pink-600 px-6 py-2 rounded-lg font-semibold transition-colors cursor-pointer">
-                        {isActive ? 'Continue Chat' : 'Chat Now'}{' '}
+                      <button className="bg-pink-500 flex items-center gap-2 hover:bg-pink-600 px-6 py-2 rounded-lg font-semibold transition-colors cursor-pointer">
+                        {isActive ? 'Continue Chat' : 'Chat Now'}
                         {loading && <Loader className="animate-spin" />}
                       </button>
                     </div>

@@ -16,10 +16,12 @@ export const useApi = async (
   };
 
   // Only add Content-Type for JSON requests, not FormData
+
   if (
     options.body &&
     !(options.body instanceof FormData) &&
-    !options.headers?.['Content-Type']
+    //@ts-expect-error error
+    !options?.headers?.['Content-Type']
   ) {
     headers['Content-Type'] = 'application/json';
   }
