@@ -733,7 +733,7 @@ export default function ChatPage() {
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
-                    className="sr-only peer"
+                    className="sr-only peer text-lg"
                     checked={response_type === 'voice'}
                     onChange={toggleResponseType}
                   />
@@ -916,7 +916,7 @@ export default function ChatPage() {
                       : 'Type a message...'
                   }
                   disabled={isRecording || isTranscribing}
-                  className="w-full p-3 pr-12 border border-gray-600 rounded-xl bg-zinc-800 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none disabled:opacity-50 disabled:cursor-not-allowed max-h-32"
+                  className="w-full p-3 text-lg pr-12 border border-gray-600 rounded-xl bg-zinc-800 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none disabled:opacity-50 disabled:cursor-not-allowed max-h-32"
                   rows={1}
                 />
               </div>
