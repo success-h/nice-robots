@@ -137,16 +137,7 @@ export default function ProfilePage() {
   };
 
   const handleBackNavigation = () => {
-    const userAttributes = user?.data?.attributes;
-    if (userAttributes) {
-      const { age, avatar, gender, language, name, parent_ok } = userAttributes;
-      if (age && avatar && gender && language && name && parent_ok) {
-        router.push('/');
-      } else {
-        // Profile is incomplete, user should complete it
-        return;
-      }
-    }
+    router.push('/');
   };
 
   // if (!isLoggedIn) {
@@ -160,7 +151,7 @@ export default function ProfilePage() {
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <button
             onClick={handleBackNavigation}
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 cursor-pointer hover:bg-gray-700 rounded-lg transition-colors"
           >
             <ArrowLeft className="h-6 w-6" />
           </button>
@@ -170,7 +161,7 @@ export default function ProfilePage() {
           {!isEditing ? (
             <button
               onClick={() => setIsEditing(true)}
-              className="p-2 bg-pink-500 hover:bg-pink-600 rounded-lg transition-colors"
+              className="cursor-pointer p-2 bg-pink-500 hover:bg-pink-600 rounded-lg transition-colors"
             >
               <Edit3 className="h-5 w-5" />
             </button>

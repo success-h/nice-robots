@@ -32,7 +32,18 @@ export default function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Check for mobile screen size
+  const {
+    currentChat,
+    character,
+    user,
+    updateChatHistory,
+    response_type,
+    isLoggedIn,
+    setChats,
+    setCurrentChat,
+    setCharacter,
+    chats,
+  } = useUserStore();
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -54,22 +65,8 @@ export default function ChatPage() {
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const {
-    currentChat,
-    character,
-    user,
-    updateChatHistory,
-    response_type,
-    isLoggedIn,
-    setChats,
-    setCurrentChat,
-    setCharacter,
-    chats,
-  } = useUserStore();
-
   const { handleModerationFailure } = useModerationHandling();
 
-  // Send message function with full implementation
   const sendMessage = async () => {
     if (!inputMessage.trim() || isTyping) return;
 
@@ -282,7 +279,6 @@ export default function ChatPage() {
     }
   };
 
-  // Fetch and play audio stream
   const fetchAudioStream = async (messageId: string) => {
     try {
       setIsSpeaking(true);
@@ -361,6 +357,62 @@ export default function ChatPage() {
     setIsSpeaking(false);
   };
   const router = useRouter();
+
+  useEffect(() => {
+    if (
+      currentChat &&
+      currentChat.chatHistory &&
+      currentChat.chatHistory.length <= 1
+    ) {
+      const introVideo =
+        currentChat.data?.relationships?.character?.relationships?.videos?.find(
+          (video) => video.attributes.type === 'intro'
+        );
+
+      const characterName =
+        currentChat.data?.relationships?.character?.attributes?.name;
+
+      // Check if video already exists to avoid duplicates
+      const hasVideo = currentChat.chatHistory.some(
+        (msg) => msg.messageType === 'video'
+      );
+      const hasWelcome = currentChat.chatHistory.some(
+        (msg) =>
+          msg.role === 'assistant' &&
+          msg.content.includes("I'm so excited to meet you")
+      );
+
+      // Add video first
+      if (introVideo && !hasVideo) {
+        console.log({ introVideo: introVideo?.attributes?.url });
+        const videoMessage = {
+          role: 'assistant',
+          content: '',
+          messageType: 'video',
+          videoUrl: introVideo?.attributes?.url,
+        };
+        updateChatHistory(videoMessage, currentChat?.data?.id);
+
+        // Add welcome message after a small delay
+        if (!hasWelcome) {
+          setTimeout(() => {
+            const welcomeMessage = {
+              role: 'assistant',
+              content: `Hi! I'm ${characterName}. I'm so excited to meet you! How are you doing today! 😊`,
+            };
+            updateChatHistory(welcomeMessage, currentChat?.data?.id);
+          }, 100);
+        }
+      } else if (!hasWelcome) {
+        // If no video, add welcome immediately
+        const welcomeMessage = {
+          role: 'assistant',
+          content: `Hi! I'm ${characterName}. I'm so excited to meet you! How are you doing today! 😊`,
+        };
+        updateChatHistory(welcomeMessage, currentChat?.data?.id);
+      }
+    }
+  }, [currentChat, updateChatHistory]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -707,64 +759,73 @@ export default function ChatPage() {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto p-4 space-y-4">
-            {currentChat?.chatHistory?.map((message, index) => (
-              <div key={index} className="group">
-                <div
-                  className={`flex items-start space-x-3 ${
-                    message.role === 'user'
-                      ? 'flex-row-reverse space-x-reverse'
-                      : ''
-                  }`}
-                >
-                  <div className="flex-shrink-0">
-                    {message.role === 'assistant' ? (
-                      <Image
-                        src={character?.attributes?.avatar}
-                        alt={character?.attributes?.name}
-                        width={32}
-                        height={32}
-                        className="rounded-full"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                        <Image
-                          src={
-                            user?.data?.attributes?.avatar ||
-                            '/default-avatar.png'
-                          }
-                          alt="Profile"
-                          width={96}
-                          height={96}
-                          className="w-8 h-8 rounded-full mx-auto border-4 border-gray-700"
-                        />
-                      </div>
-                    )}
-                  </div>
+            {currentChat?.chatHistory?.map((message, index) => {
+              return (
+                <div key={index} className="group">
                   <div
-                    className={`flex-1 max-w-[80%] ${
-                      message.role === 'user' ? 'text-right' : ''
+                    className={`flex items-start space-x-3 ${
+                      message.role === 'user'
+                        ? 'flex-row-reverse space-x-reverse'
+                        : ''
                     }`}
                   >
+                    <div className="flex-shrink-0">
+                      {message.role === 'assistant' ? (
+                        <Image
+                          src={character?.attributes?.avatar}
+                          alt={character?.attributes?.name}
+                          width={32}
+                          height={32}
+                          className="rounded-full"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
+                          <span className="text-white text-sm font-medium">
+                            U
+                          </span>
+                        </div>
+                      )}
+                    </div>
                     <div
-                      className={`inline-block p-3 rounded-lg ${
-                        message.role === 'user'
-                          ? 'bg-emerald-500 text-white'
-                          : 'bg-[#444454] text-white'
+                      className={`flex-1 max-w-[80%] ${
+                        message.role === 'user' ? 'text-right' : ''
                       }`}
                     >
-                      <p className="text-sm whitespace-pre-wrap">
-                        {message.content}
-                      </p>
+                      {message.messageType === 'video' ? (
+                        <div className="inline-block bg-gray-800 rounded-lg overflow-hidden">
+                          <video
+                            src={message.videoUrl}
+                            controls
+                            className="w-80 h-auto rounded-lg"
+                            poster={character?.attributes?.avatar} // Use character avatar as poster
+                          >
+                            Your browser does not support the video tag.
+                          </video>
+                        </div>
+                      ) : (
+                        // Regular text message
+                        <div
+                          className={`inline-block p-3 rounded-lg ${
+                            message.role === 'user'
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-gray-800 text-gray-100'
+                          }`}
+                        >
+                          <p className="text-sm whitespace-pre-wrap">
+                            {message.content}
+                          </p>
+                        </div>
+                      )}
+                      {message.moderationFailed && (
+                        <p className="text-xs text-red-500 mt-1">
+                          ⚠️ Message flagged
+                        </p>
+                      )}
                     </div>
-                    {message.moderationFailed && (
-                      <p className="text-xs text-red-500 mt-1">
-                        ⚠️ Message flagged
-                      </p>
-                    )}
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {/* Typing Indicator */}
             {isTyping && (
@@ -880,7 +941,7 @@ export default function ChatPage() {
               <div className="flex justify-center mt-3 space-x-2">
                 {isSpeaking && (
                   <button
-                    onClick={() => setIsMuted(!isMuted)}
+                    onClick={toggleMute}
                     className="px-3 py-1 bg-gray-700 text-gray-300 rounded-lg text-sm hover:bg-gray-600 transition-colors flex items-center space-x-1"
                   >
                     {isMuted ? (
@@ -895,6 +956,7 @@ export default function ChatPage() {
                   onClick={() => {
                     setIsTyping(false);
                     setIsSpeaking(false);
+                    stopResponse();
                   }}
                   className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-colors flex items-center space-x-1"
                 >

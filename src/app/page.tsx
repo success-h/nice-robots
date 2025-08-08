@@ -58,6 +58,8 @@ export default function HomePage() {
   } = useUserStore();
   const router = useRouter();
 
+  console.log({ currentChat });
+
   const { data, isLoading } = useQuery({
     queryKey: ['characters'],
     queryFn: getCharacters,
@@ -188,7 +190,7 @@ export default function HomePage() {
     <>
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-8">
-          candy<span className="text-pink-500">.ai</span>
+          Nice<span className="text-pink-500">robots</span>
         </h1>
 
         <nav className="space-y-4">
@@ -297,7 +299,7 @@ export default function HomePage() {
                 {/* Mobile Logo */}
                 {isMobile && (
                   <h1 className="text-xl font-bold">
-                    candy<span className="text-pink-500">.ai</span>
+                    Nice<span className="text-pink-500">robots</span>
                   </h1>
                 )}
               </div>

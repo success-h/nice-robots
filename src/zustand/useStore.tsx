@@ -92,13 +92,14 @@ export type ChatData = {
   };
   chatHistory?: Message[];
 };
-
 export type Message = {
   role: string;
   content: string;
   messageId?: string;
   moderationFailed?: boolean;
   isResolutionResponse?: boolean;
+  messageType?: 'text' | 'video'; // Add this line
+  videoUrl?: string;
 };
 
 export type ModerationDetails = {
@@ -162,7 +163,7 @@ const useUserStore = create<UserState>()(
 
       updateChatHistory(message, chatId) {
         set((state) => {
-          if (!state.currentChat || state.currentChat.data.id !== chatId) {
+          if (!state.currentChat || state?.currentChat?.data?.id !== chatId) {
             return state;
           }
 
@@ -172,7 +173,15 @@ const useUserStore = create<UserState>()(
               const history = [...(state.currentChat.chatHistory || [])];
               const last = history[history.length - 1];
 
-              if (last?.role === message.role) {
+              // Always push video messages, never replace them
+              if (message.messageType === 'video') {
+                history.push(message);
+              }
+              // For other messages, only replace if same role and NOT following a video
+              else if (
+                last?.role === message.role &&
+                last?.messageType !== 'video'
+              ) {
                 history[history.length - 1] = message;
               } else {
                 history.push(message);
