@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Mic,
@@ -12,6 +11,7 @@ import {
   Square,
   Plus,
   MessageSquare,
+  Loader2,
 } from 'lucide-react';
 import useUserStore, {
   Message,
@@ -20,6 +20,19 @@ import useUserStore, {
 import { useApi } from '@/hooks/useApi';
 import Image from 'next/image';
 import Link from 'next/link';
+import ChatList from '@/components/ChatList';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { FiTrash } from 'react-icons/fi';
+import { Button } from '@/components/ui/button';
 
 export default function ChatPage() {
   const [inputMessage, setInputMessage] = useState('');
@@ -31,18 +44,26 @@ export default function ChatPage() {
   const [isMuted, setIsMuted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [relationshipTypes, setRelationshipTypes] = useState<string[]>([]);
+  const [selectedRelationship, setSelectedRelationship] = useState<string>('');
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const [hasChatObject, setHasChatObject] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const {
     currentChat,
     character,
-    user,
     updateChatHistory,
     response_type,
-    isLoggedIn,
     setChats,
     setCurrentChat,
     setCharacter,
     chats,
+    access_token,
+    characters,
+    deleteChat,
+    deleteCharacter,
   } = useUserStore();
   useEffect(() => {
     const checkMobile = () => {
@@ -67,20 +88,10 @@ export default function ChatPage() {
 
   const { handleModerationFailure } = useModerationHandling();
 
-  const sendMessage = async () => {
-    if (!inputMessage.trim() || isTyping) return;
-
-    const userMessage: Message = {
-      role: 'user',
-      content: inputMessage.trim(),
-    };
-
-    // Add user message to chat
-    updateChatHistory(userMessage, currentChat?.data.id!);
+  const sendMessage = async (message: Message, chatId: string) => {
     setInputMessage('');
     setIsTyping(true);
 
-    // Initialize assistant message
     const assistantMessage: Message = {
       role: 'assistant',
       content: '',
@@ -91,22 +102,21 @@ export default function ChatPage() {
       abortController.current = controller;
 
       const response = await useApi(
-        `/chat-completions/${currentChat?.data?.id}`,
+        `/chat-completions/${chatId}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            messages: [...(currentChat?.chatHistory || []), userMessage],
+            messages: [...(currentChat?.chatHistory || []), message],
           }),
           signal: controller.signal,
         },
-        user?.access_token
+        access_token
       );
 
       const contentType = response.headers.get('content-type');
 
       if (contentType?.includes('text/event-stream')) {
-        // Handle streaming response
         if (!response.body) {
           throw new Error('No response body available for streaming');
         }
@@ -144,7 +154,7 @@ export default function ChatPage() {
 
                     if (eventType === 'error' || parsed.error) {
                       const moderationDetails = handleModerationFailure(
-                        userMessage,
+                        message,
                         currentChat?.data?.id!,
                         parsed.details || []
                       );
@@ -157,7 +167,7 @@ export default function ChatPage() {
                           body: JSON.stringify({ details: moderationDetails }),
                           signal: controller.signal,
                         },
-                        user?.access_token
+                        access_token
                       );
 
                       if (moderationResponse.ok) {
@@ -205,7 +215,7 @@ export default function ChatPage() {
                       }
                     }
                   } catch (parseError) {
-                    console.log('Error parsing SSE chunk:', parseError);
+                    // console.log('Error parsing SSE chunk:', parseError);
                   }
                 }
               }
@@ -230,7 +240,7 @@ export default function ChatPage() {
           const errorData = await response.json();
           if (errorData.reason === 'filtering' && errorData.details) {
             const moderationDetails = handleModerationFailure(
-              userMessage,
+              message,
               currentChat?.data?.id!,
               errorData.details
             );
@@ -243,7 +253,7 @@ export default function ChatPage() {
                 body: JSON.stringify({ details: moderationDetails }),
                 signal: controller.signal,
               },
-              user?.access_token
+              access_token
             );
 
             if (moderationResponse.ok) {
@@ -278,7 +288,6 @@ export default function ChatPage() {
       setIsTyping(false);
     }
   };
-
   const fetchAudioStream = async (messageId: string) => {
     try {
       setIsSpeaking(true);
@@ -291,7 +300,7 @@ export default function ChatPage() {
       const response = await useApi(
         `/stream-speech/${messageId}`,
         { method: 'GET' },
-        user?.access_token
+        access_token
       );
 
       if (!response.ok) {
@@ -316,7 +325,6 @@ export default function ChatPage() {
       };
 
       audio.onerror = () => {
-        console.error('Audio playback error');
         setIsSpeaking(false);
         URL.revokeObjectURL(audioUrl);
         audioRef.current = null;
@@ -331,7 +339,53 @@ export default function ChatPage() {
     }
   };
 
-  // Toggle mute
+  const createNewChat = async () => {
+    if (!character?.id || !selectedRelationship || isCreatingChat) return;
+
+    setIsCreatingChat(true);
+    try {
+      const response = await useApi(
+        '/chats',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            data: {
+              attributes: {
+                character_id: character.id,
+                relationship_type: selectedRelationship,
+                return_type: response_type,
+              },
+            },
+          }),
+        },
+        access_token
+      );
+
+      // const data = await parseApiResponse(response);
+      const data = await response.json();
+      if (data) {
+        const chatData = await loadChatHistory();
+        const userMessage: Message = {
+          role: 'user',
+          content: `Be my ${selectedRelationship}`,
+        };
+        const assistantMessage: Message = {
+          role: 'assistant',
+          content: data?.data?.text,
+        };
+        updateChatHistory(userMessage, chatData.data.id);
+        updateChatHistory(assistantMessage, chatData.data.id);
+        fetchAudioStream(data.data.message_id);
+
+        // sendMessage(userMessage, data?.data?.id);
+      }
+    } catch (error) {
+      console.error('Failed to create new chat:', error);
+    } finally {
+      setIsCreatingChat(false);
+    }
+  };
+
   const toggleMute = () => {
     if (audioRef.current) {
       if (isMuted) {
@@ -356,63 +410,32 @@ export default function ChatPage() {
     }
     setIsSpeaking(false);
   };
-  const router = useRouter();
 
   useEffect(() => {
-    if (
-      currentChat &&
-      currentChat.chatHistory &&
-      currentChat.chatHistory.length <= 1
-    ) {
-      const introVideo =
-        currentChat.data?.relationships?.character?.relationships?.videos?.find(
-          (video) => video.attributes.type === 'intro'
-        );
-
-      const characterName =
-        currentChat.data?.relationships?.character?.attributes?.name;
-
-      // Check if video already exists to avoid duplicates
-      const hasVideo = currentChat.chatHistory.some(
-        (msg) => msg.messageType === 'video'
-      );
-      const hasWelcome = currentChat.chatHistory.some(
-        (msg) =>
-          msg.role === 'assistant' &&
-          msg.content.includes("I'm so excited to meet you")
-      );
-
-      // Add video first
-      if (introVideo && !hasVideo) {
-        console.log({ introVideo: introVideo?.attributes?.url });
-        const videoMessage = {
-          role: 'assistant',
-          content: '',
-          messageType: 'video',
-          videoUrl: introVideo?.attributes?.url,
-        };
-        updateChatHistory(videoMessage, currentChat?.data?.id);
-
-        // Add welcome message after a small delay
-        if (!hasWelcome) {
-          setTimeout(() => {
-            const welcomeMessage = {
-              role: 'assistant',
-              content: `Hi! I'm ${characterName}. I'm so excited to meet you! How are you doing today! 😊`,
-            };
-            updateChatHistory(welcomeMessage, currentChat?.data?.id);
-          }, 100);
+    const fetchRelationshipTypes = async () => {
+      if (character?.id) {
+        try {
+          const response = await useApi(
+            `/characters/${character.id}/relationship-types`,
+            { method: 'GET' },
+            access_token
+          );
+          const data = await response.json();
+          const types = data.relationship_types || [];
+          setRelationshipTypes(types);
+          if (types.length > 0) {
+            setSelectedRelationship(types[0]);
+          }
+        } catch (error) {
+          console.error('Failed to fetch relationship types:', error);
         }
-      } else if (!hasWelcome) {
-        // If no video, add welcome immediately
-        const welcomeMessage = {
-          role: 'assistant',
-          content: `Hi! I'm ${characterName}. I'm so excited to meet you! How are you doing today! 😊`,
-        };
-        updateChatHistory(welcomeMessage, currentChat?.data?.id);
       }
+    };
+
+    if (!currentChat) {
+      fetchRelationshipTypes();
     }
-  }, [currentChat, updateChatHistory]);
+  }, [character?.id, currentChat, access_token]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -423,25 +446,30 @@ export default function ChatPage() {
     }
   }, [inputMessage]);
 
-  // Load chat history
   const loadChatHistory = async () => {
     try {
+      setIsLoading(true);
       const response = await useApi(
         `/chats/by-character/${character?.id}`,
         { method: 'GET' },
-        user?.access_token
+        access_token
       );
       const data = await response.json();
-      setCurrentChat(data);
-      setChats(data);
-      return data;
+      setIsLoading(false);
+      if (!data?.errors) {
+        setCurrentChat(data);
+        setChats(data);
+        setHasChatObject(true);
+        return data;
+      }
     } catch (error) {
-      console.log('Error loading chat:', error);
+      setIsLoading(false);
       return error;
     }
   };
 
   useEffect(() => {
+    setCurrentChat(null);
     if (character?.id) {
       loadChatHistory();
     }
@@ -471,7 +499,7 @@ export default function ChatPage() {
           method: 'POST',
           body: formData,
         },
-        user?.access_token
+        access_token
       );
 
       if (!response.ok) {
@@ -591,7 +619,7 @@ export default function ChatPage() {
             'Content-Type': 'application/json',
           },
         },
-        user?.access_token
+        access_token
       );
       loadChatHistory();
     } catch (error) {
@@ -599,16 +627,80 @@ export default function ChatPage() {
     }
   };
 
+  const handleUserMessage = () => {
+    if (!inputMessage.trim() || isTyping || !currentChat?.data.id) return;
+
+    const userMessage: Message = {
+      role: 'user',
+      content: inputMessage.trim(),
+    };
+
+    updateChatHistory(userMessage, currentChat.data.id);
+
+    setInputMessage('');
+
+    sendMessage(userMessage, currentChat.data.id);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      if (!inputMessage.trim() || isTyping || !currentChat?.data.id) return;
+
+      const userMessage: Message = {
+        role: 'user',
+        content: inputMessage.trim(),
+      };
+
+      updateChatHistory(userMessage, currentChat.data.id);
+
+      setInputMessage('');
+
+      sendMessage(userMessage, currentChat.data.id);
     }
   };
 
-  if (!isLoggedIn || !character || !currentChat) {
-    return null;
-  }
+  const handleDeleteChat = async (
+    id: string | undefined,
+    character_id: string
+  ) => {
+    setDeleteLoading(true);
+    try {
+      await useApi(
+        `/chats/${id}`,
+        {
+          method: 'DELETE',
+        },
+        access_token
+      );
+      deleteChat(id!);
+      deleteCharacter(character_id!);
+      setDeleteLoading(false);
+
+      const nextCharacter = characters?.[0];
+      setCharacter(nextCharacter!);
+      setChats(
+        chats?.find(
+          (chat) =>
+            chat?.data?.relationships?.character?.id === nextCharacter?.id
+        )!
+      );
+      setCurrentChat(
+        chats?.find(
+          (chat) =>
+            chat?.data?.relationships?.character?.id === nextCharacter?.id
+        )!
+      );
+      return;
+    } catch (error) {
+      setDeleteLoading(false);
+      return error;
+    }
+  };
+
+  const introVideo = character?.relationships?.videos?.find(
+    (video) => video.attributes.type === 'intro'
+  );
 
   return (
     <div className="flex h-screen bg-gray-900">
@@ -633,6 +725,9 @@ export default function ChatPage() {
         <div className="p-3 border-b border-gray-700 py-4">
           <Link
             href={'/'}
+            onClick={() => {
+              setCurrentChat(null);
+            }}
             className="flex items-center w-full p-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-colors"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -641,46 +736,17 @@ export default function ChatPage() {
         </div>
 
         {/* Chat List */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-2 space-y-1">
-            {chats?.map((chat, index) => (
-              <button
-                key={index}
-                onClick={() => {
-                  setCharacter(chat?.data?.relationships?.character);
-                  setCurrentChat(chat);
-                }}
-                className={`flex cursor-pointer items-center w-full p-3 text-left rounded-lg transition-colors group ${
-                  currentChat?.data?.id === chat?.data?.id
-                    ? 'bg-gray-700 text-gray-100'
-                    : 'text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                <Image
-                  src={chat?.data?.relationships?.character?.attributes?.avatar}
-                  alt={chat?.data?.relationships?.character?.attributes.name}
-                  width={32}
-                  height={32}
-                  className="rounded-full mr-3 flex-shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {chat?.data?.relationships?.character?.attributes.name}
-                  </p>
-                  <p className="text-xs text-gray-400 truncate">
-                    {chat?.chatHistory && chat?.chatHistory?.length > 0
-                      ? chat?.chatHistory[
-                          chat?.chatHistory?.length - 1
-                        ].content.slice(0, 30) + '...'
-                      : 'New conversation'}
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+        <ChatList
+          characters={characters}
+          chats={chats}
+          currentChat={currentChat!}
+          setCharacter={setCharacter}
+          deleteLoading={deleteLoading}
+          handleDeleteChat={(id: string, character_id: string) => {
+            handleDeleteChat(id, character_id);
+          }}
+        />
 
-        {/* Sidebar Footer */}
         <div className="p-3 border-t border-gray-700">
           <div className="flex items-center space-x-3">
             <Image
@@ -691,12 +757,74 @@ export default function ChatPage() {
               className="rounded-full"
             />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-100 truncate">
-                {character?.attributes?.name}
+              <p className="text-sm font-medium truncate">
+                {character?.attributes.name}
               </p>
-              <p className="text-xs text-gray-400">
-                {isTyping ? 'Typing...' : isSpeaking ? 'Speaking...' : 'Online'}
+              <p className="text-xs text-gray-400 truncate">
+                {chats?.find(
+                  (c) => c?.data?.relationships?.character?.id === character?.id
+                )?.chatHistory &&
+                chats?.find(
+                  (c) => c?.data?.relationships?.character?.id === character?.id
+                )?.chatHistory?.length! > 0
+                  ? chats
+                      ?.find(
+                        (c) =>
+                          c?.data?.relationships?.character?.id ===
+                          character?.id
+                      )
+                      ?.chatHistory?.[
+                        chats?.find(
+                          (c) =>
+                            c?.data?.relationships?.character?.id ===
+                            character?.id
+                        )?.chatHistory?.length! - 1
+                      ]?.content.slice(0, 30) + '...'
+                  : 'New conversation'}
               </p>
+            </div>
+            <div className="ml-2">
+              <Dialog>
+                <DialogTrigger className="cursor-pointer">
+                  <FiTrash />
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle className="text-black">
+                      Are you absolutely sure?
+                    </DialogTitle>
+                    <DialogDescription>
+                      This action cannot be undone. This will permanently delete
+                      your account and remove your data from our servers.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <DialogClose>
+                      <Button variant={'outline'} className="text-black">
+                        Cancel
+                      </Button>
+                    </DialogClose>
+                    <Button
+                      onClick={() => {
+                        handleDeleteChat(
+                          chats?.find(
+                            (chat) =>
+                              chat.data.relationships.character.id ===
+                              character?.id
+                          )?.data?.id,
+                          character?.id!
+                        );
+                      }}
+                      className="bg-red-500"
+                    >
+                      {deleteLoading && (
+                        <Loader2 className="mr-2 h-6 w-6 animate-spin text-pink-500" />
+                      )}
+                      Yes, Delete chat
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </div>
@@ -711,7 +839,7 @@ export default function ChatPage() {
               {!sidebarOpen && (
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className="p-2  cursor-pointer text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
+                  className="p-2 cursor-pointer text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
                 >
                   <MessageSquare className="w-5 h-5" />
                 </button>
@@ -742,12 +870,12 @@ export default function ChatPage() {
               </div>
 
               {sidebarOpen && (
-                <button
+                <Button
                   onClick={() => setSidebarOpen(false)}
-                  className="p-2 cursor-pointer text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
+                  className="p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
                 >
                   <ArrowLeft className="w-5 h-5" />
-                </button>
+                </Button>
               )}
               {/* <button className="p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors">
                 <Settings className="w-5 h-5" />
@@ -756,104 +884,159 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-3xl mx-auto p-4 space-y-4">
-            {currentChat?.chatHistory?.map((message, index) => {
-              return (
-                <div key={index} className="group">
-                  <div
-                    className={`flex items-start space-x-3 ${
-                      message.role === 'user'
-                        ? 'flex-row-reverse space-x-reverse'
-                        : ''
+        {!isLoading && !currentChat && (
+          <div className="flex flex-col items-center justify-center h-full text-center p-4">
+            {/* Intro Video */}
+            {introVideo && (
+              <video
+                src={introVideo.attributes.url}
+                autoPlay
+                controls
+                className="w-full max-w-lg rounded-xl shadow-lg"
+                poster={character?.attributes?.avatar}
+              >
+                Your browser does not support the video tag.
+              </video>
+            )}
+
+            {/* Relationship Selection */}
+            <div className="mt-8 space-y-4">
+              <h3 className="text-xl font-semibold text-white">
+                Choose a relationship
+              </h3>
+              <div className="flex flex-wrap justify-center gap-2">
+                {relationshipTypes.map((type) => (
+                  <Button
+                    key={type}
+                    variant={
+                      selectedRelationship === type ? 'default' : 'outline'
+                    }
+                    className={`bg-white text-black ${
+                      selectedRelationship === type &&
+                      'border bg-emerald-500 text-white'
                     }`}
+                    onClick={() => setSelectedRelationship(type)}
                   >
-                    <div className="flex-shrink-0">
-                      {message.role === 'assistant' ? (
-                        <Image
-                          src={character?.attributes?.avatar}
-                          alt={character?.attributes?.name}
-                          width={32}
-                          height={32}
-                          className="rounded-full"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
-                          <span className="text-white text-sm font-medium">
-                            U
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                    {type}
+                  </Button>
+                ))}
+              </div>
+              <Button
+                onClick={createNewChat}
+                disabled={isCreatingChat || !selectedRelationship}
+                className="bg-gray-900 border h-12 px-7 rounded-full"
+              >
+                {isCreatingChat && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Befriend
+              </Button>
+            </div>
+          </div>
+        )}
+        <div className="flex-1 overflow-y-auto">
+          {isLoading ? (
+            <div className="h-full flex items-center justify-center">
+              <Loader2 className="h-10 w-10 m-auto animate-spin text-pink-500" />
+            </div>
+          ) : (
+            <div className="max-w-3xl mx-auto p-4 space-y-4">
+              {currentChat?.chatHistory?.map((message, index) => {
+                return (
+                  <div key={index} className="group">
                     <div
-                      className={`flex-1 max-w-[80%] ${
-                        message.role === 'user' ? 'text-right' : ''
+                      className={`flex items-start space-x-3 ${
+                        message.role === 'user'
+                          ? 'flex-row-reverse space-x-reverse'
+                          : ''
                       }`}
                     >
-                      {message.messageType === 'video' ? (
-                        <div className="inline-block bg-gray-800 rounded-lg overflow-hidden">
-                          <video
-                            src={message.videoUrl}
-                            controls
-                            className="w-80 h-auto rounded-lg"
-                            poster={character?.attributes?.avatar} // Use character avatar as poster
+                      <div className="flex-shrink-0">
+                        {message.role === 'assistant' ? (
+                          <Image
+                            src={character?.attributes?.avatar!}
+                            alt={character?.attributes?.name!}
+                            width={32}
+                            height={32}
+                            className="rounded-full"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-sm font-medium">
+                              U
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div
+                        className={`flex-1 max-w-[80%] ${
+                          message.role === 'user' ? 'text-right' : ''
+                        }`}
+                      >
+                        {message.messageType === 'video' ? (
+                          <div className="inline-block bg-gray-800 rounded-lg overflow-hidden">
+                            <video
+                              src={message.videoUrl}
+                              controls
+                              className="w-80 h-auto rounded-lg"
+                              poster={character?.attributes?.avatar} // Use character avatar as poster
+                            >
+                              Your browser does not support the video tag.
+                            </video>
+                          </div>
+                        ) : (
+                          // Regular text message
+                          <div
+                            className={`inline-block p-3 rounded-lg ${
+                              message.role === 'user'
+                                ? 'bg-emerald-500 text-white'
+                                : 'bg-gray-800 text-gray-100'
+                            }`}
                           >
-                            Your browser does not support the video tag.
-                          </video>
-                        </div>
-                      ) : (
-                        // Regular text message
-                        <div
-                          className={`inline-block p-3 rounded-lg ${
-                            message.role === 'user'
-                              ? 'bg-emerald-500 text-white'
-                              : 'bg-gray-800 text-gray-100'
-                          }`}
-                        >
-                          <p className="text-sm whitespace-pre-wrap">
-                            {message.content}
+                            <p className="text-sm whitespace-pre-wrap">
+                              {message.content}
+                            </p>
+                          </div>
+                        )}
+                        {message.moderationFailed && (
+                          <p className="text-xs text-red-500 mt-1">
+                            ⚠️ Message flagged
                           </p>
-                        </div>
-                      )}
-                      {message.moderationFailed && (
-                        <p className="text-xs text-red-500 mt-1">
-                          ⚠️ Message flagged
-                        </p>
-                      )}
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Typing Indicator */}
+              {isTyping && (
+                <div className="flex items-start space-x-3">
+                  <Image
+                    src={character?.attributes?.avatar!}
+                    alt={character?.attributes?.name!}
+                    width={32}
+                    height={32}
+                    className="rounded-full"
+                  />
+                  <div className="bg-gray-800 rounded-lg p-3">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                      <div
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: '0.1s' }}
+                      ></div>
+                      <div
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: '0.2s' }}
+                      ></div>
                     </div>
                   </div>
                 </div>
-              );
-            })}
-
-            {/* Typing Indicator */}
-            {isTyping && (
-              <div className="flex items-start space-x-3">
-                <Image
-                  src={character?.attributes?.avatar}
-                  alt={character?.attributes?.name}
-                  width={32}
-                  height={32}
-                  className="rounded-full"
-                />
-                <div className="bg-gray-800 rounded-lg p-3">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div
-                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: '0.1s' }}
-                    ></div>
-                    <div
-                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: '0.2s' }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
         </div>
 
         {/* Input Area */}
@@ -901,7 +1084,6 @@ export default function ChatPage() {
                 )}
               </button>
 
-              {/* Text Input */}
               <div className="flex-1 relative">
                 <textarea
                   ref={textareaRef}
@@ -922,8 +1104,8 @@ export default function ChatPage() {
               </div>
 
               {/* Send Button */}
-              <button
-                onClick={sendMessage}
+              <Button
+                onClick={handleUserMessage}
                 disabled={
                   !inputMessage.trim() ||
                   isTyping ||
@@ -933,7 +1115,7 @@ export default function ChatPage() {
                 className="flex-shrink-0 p-3 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
               >
                 <Send className="w-5 h-5" />
-              </button>
+              </Button>
             </div>
 
             {/* Control Buttons */}

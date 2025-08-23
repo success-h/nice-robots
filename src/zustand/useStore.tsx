@@ -1,3 +1,4 @@
+import { CookieValueTypes } from 'cookies-next';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
@@ -47,16 +48,13 @@ export interface CharacterData {
 }
 
 export type User = {
-  access_token: string;
   data: {
     attributes: {
-      age: number;
+      age_type: string;
       avatar: string;
-      gender: string;
       language: string;
       name: string;
       parent_ok: boolean;
-      legal_age: boolean;
     };
     id: string;
     type: string;
@@ -109,6 +107,7 @@ export type ModerationDetails = {
 
 export interface UserState {
   user: User | null;
+  access_token: string;
   isLoggedIn: boolean;
   setUser: (userData: User | null) => void;
   setCharacter: (characterData: CharacterData | null) => void;
@@ -130,6 +129,9 @@ export interface UserState {
   addModerationFailedMessage: (message: Message, chatId: string) => void;
   addModerationResolutionResponse: (message: Message, chatId: string) => void;
   trimChatHistory: (chatId: string) => void;
+  setToken: (token: CookieValueTypes) => unknown;
+  addCharacter: (characterData: CharacterData) => void;
+  deleteCharacter: (characterId: string) => void;
 }
 
 const trimMessagesToLimit = (
@@ -154,10 +156,48 @@ const useUserStore = create<UserState>()(
       response_type: 'voice',
       chats: null,
       currentChat: null,
+      access_token: '',
 
       setCharacters(characterData) {
         set({
           characters: characterData,
+        });
+      },
+
+      addCharacter(characterData) {
+        set((state) => {
+          const existingCharacters = state.characters || [];
+
+          const characterExists = existingCharacters.some(
+            (char) => char.id === characterData.id
+          );
+
+          if (characterExists) {
+            return state;
+          }
+
+          return {
+            characters: [...existingCharacters, characterData],
+          };
+        });
+      },
+      deleteCharacter: (characterId) => {
+        set((state) => {
+          if (!state.characters) {
+            return state;
+          }
+
+          const updatedCharacters = state.characters.filter(
+            (character) => character.id !== characterId
+          );
+
+          const newCurrentCharacter =
+            state.character?.id === characterId ? null : state.character;
+
+          return {
+            characters: updatedCharacters.length > 0 ? updatedCharacters : null,
+            character: newCurrentCharacter,
+          };
         });
       },
 
@@ -424,6 +464,11 @@ const useUserStore = create<UserState>()(
           isLoggedIn: !!userData,
         }),
 
+      setToken: (token: CookieValueTypes) =>
+        set({
+          access_token: token,
+        }),
+
       setCharacter: (characterData) =>
         set({
           character: characterData,
@@ -458,6 +503,7 @@ const useUserStore = create<UserState>()(
         chats: state.chats,
         currentChat: state.currentChat,
         characters: state.characters,
+        access_token: state.access_token,
       }),
     }
   )

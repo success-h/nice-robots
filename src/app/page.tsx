@@ -10,6 +10,8 @@ import SignInModal from '../components/SignInModal';
 import Image from 'next/image';
 import { parseApiResponse } from '@/lib/utils';
 import Link from 'next/link';
+import AgeTypeModal from '@/components/AgeTypesModal';
+import { useGetCookie } from 'cookies-next';
 
 const getCharacters = async () => {
   try {
@@ -29,8 +31,10 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showAgeTypeModal, setShowAgeTypeModal] = useState(false);
+  const [isUpdatingUser, setIsUpdatingUser] = useState(false);
+  const getCookie = useGetCookie();
 
-  // Check for mobile screen size
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -46,19 +50,14 @@ export default function HomePage() {
 
   const {
     user,
-    setCharacters,
-    characters,
     chats,
-    setChats,
-    setCurrentChat,
     setCharacter,
-    response_type,
     isLoggedIn,
     currentChat,
+    setUser,
+    addCharacter,
   } = useUserStore();
   const router = useRouter();
-
-  console.log({ currentChat });
 
   const { data, isLoading } = useQuery({
     queryKey: ['characters'],
@@ -66,28 +65,28 @@ export default function HomePage() {
   });
 
   useEffect(() => {
-    if (data?.data && Array.isArray(data.data)) {
-      setCharacters(data.data);
+    if (user?.data) {
+      if (!user?.data?.attributes?.age_type) {
+        setShowAgeTypeModal(true);
+        return;
+      }
     }
-  }, [data, setCharacters]);
+  }, [user]);
 
   const getSortedCharacters = () => {
-    if (!characters) return [];
+    if (!data?.data) return [];
 
-    // Get character IDs that already have active chats
     const activeCharacterIds =
       chats?.map((chat) => chat?.data?.relationships?.character?.id) || [];
 
-    // Separate active and available characters
-    const activeCharacters = characters.filter((character) =>
+    const activeCharacters = data?.data?.filter((character: CharacterData) =>
       activeCharacterIds.includes(character.id)
     );
 
-    const availableCharacters = characters.filter(
-      (character) => !activeCharacterIds.includes(character.id)
+    const availableCharacters = data?.data?.filter(
+      (character: CharacterData) => !activeCharacterIds.includes(character.id)
     );
 
-    // Return active characters first, then available ones
     return [...activeCharacters, ...availableCharacters];
   };
 
@@ -98,70 +97,22 @@ export default function HomePage() {
       return;
     }
     setCharacter(character);
-    try {
-      // Check if chat already exists
-      setLoading(true);
-      const existingChat = chats?.find(
-        (chat) => chat?.data?.relationships?.character.id === character.id
-      );
-
-      if (existingChat) {
-        setCurrentChat(existingChat);
-        router.push('/chat');
-        return;
-      }
-
-      const response = await useApi(
-        '/chats',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            data: {
-              attributes: {
-                character_id: character.id,
-                relationship_type:
-                  character.attributes.available_relationship_types[0] ||
-                  'friend',
-                return_type: response_type,
-              },
-            },
-          }),
-        },
-        user?.access_token
-      );
-
-      const data = await parseApiResponse(response);
-      setCurrentChat(data);
-      setChats(data);
-      router.push('/chat');
-      setLoading(false);
-    } catch (error) {
-      console.error('Error creating/fetching chat:', error);
-
-      try {
-        const response = await useApi(
-          `/chats/by-character/${selectedCharacter?.id}`,
-          {
-            method: 'GET',
-          },
-          user?.access_token
-        );
-        const data = await response.json();
-        setCharacter(selectedCharacter);
-        setLoading(false);
-        router.push('/chat');
-        return data;
-      } catch (error) {
-        console.log('err:', error);
-        setLoading(false);
-      }
-    }
+    addCharacter(character);
+    router.push('/chat');
+    return;
   };
 
   const handleSignInSuccess = () => {
     setShowSignInModal(false);
+    if (user?.data) {
+      if (!user?.data?.attributes?.age_type) {
+        setShowAgeTypeModal(true);
+        return;
+      }
+    }
     if (selectedCharacter) {
       setCharacter(selectedCharacter);
+      addCharacter(selectedCharacter);
       router.push('/chat');
     }
   };
@@ -174,6 +125,72 @@ export default function HomePage() {
 
   const closeMobileMenu = () => {
     setIsMobileMenuOpen(false);
+  };
+
+  const handleAgeTypeSelected = async (selectedAgeType: string) => {
+    setIsUpdatingUser(true);
+
+    try {
+      const updateData = {
+        age_type: selectedAgeType,
+        parent_ok:
+          selectedAgeType === 'child' || selectedAgeType === 'teen'
+            ? true
+            : undefined,
+      };
+
+      const userData = await updateUser({
+        data: updateData,
+        token: getCookie('access_token'),
+      });
+
+      setUser({ data: userData.data });
+      setShowAgeTypeModal(false);
+      if (selectedCharacter) {
+        setCharacter(selectedCharacter);
+        addCharacter(selectedCharacter);
+        router.push('/chat');
+      }
+    } catch (error) {
+      console.error('Error updating age type:', error);
+      throw error;
+    } finally {
+      setIsUpdatingUser(false);
+    }
+  };
+
+  const handleAgeTypeModalClose = () => {
+    console.log('Age type selection is required');
+  };
+
+  const updateUser = async ({ data, token }: any) => {
+    try {
+      const attributes: any = {};
+
+      if (data.name !== undefined) attributes.name = data.name;
+      if (data.avatar !== undefined) attributes.avatar = Number(data.avatar);
+      if (data.language !== undefined) attributes.language = data.language;
+      if (data.parent_ok !== undefined) attributes.parent_ok = data.parent_ok;
+      if (data.age_type !== undefined) attributes.age_type = data.age_type;
+
+      const response = await useApi(
+        '/users',
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            data: {
+              attributes,
+            },
+          }),
+        },
+        token
+      );
+      const resData = await response.json();
+      return resData;
+    } catch (error) {
+      console.log('error:', error);
+      throw error;
+    }
   };
 
   if (isLoading) {
@@ -414,12 +431,19 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Sign In Modal */}
       <SignInModal
         isOpen={showSignInModal}
         onClose={() => setShowSignInModal(false)}
         onSuccess={handleSignInSuccess}
       />
+      {showAgeTypeModal && (
+        <AgeTypeModal
+          isOpen={showAgeTypeModal}
+          onClose={handleAgeTypeModalClose}
+          onAgeTypeSelected={handleAgeTypeSelected}
+          isLoading={isUpdatingUser}
+        />
+      )}
     </div>
   );
 }

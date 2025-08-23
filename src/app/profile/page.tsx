@@ -18,38 +18,45 @@ import { useForm, Controller } from 'react-hook-form';
 import useUserStore, { User } from '@/zustand/useStore';
 import { useApi } from '../../hooks/useApi';
 import Image from 'next/image';
+import { useDeleteCookie, useGetCookie } from 'cookies-next';
+
+interface AgeType {
+  value: string;
+  label: string;
+  emoji: string;
+}
 
 type ProfileFormData = {
   name: string;
-  age: number;
-  gender: string;
+  avatar: string;
   language: string;
   parent_ok: boolean;
-  legal_age: boolean;
+  age_type: string;
 };
 
 type UpdatePayload = {
-  data: ProfileFormData;
+  data: Partial<ProfileFormData>;
   token: string;
-  id: string;
 };
 
-const updateProfile = async ({ data, token }: UpdatePayload) => {
+const updateUser = async ({ data, token }: UpdatePayload) => {
   try {
+    const attributes: any = {};
+
+    // Only include defined values in the attributes
+    if (data.name !== undefined) attributes.name = data.name;
+    if (data.avatar !== undefined) attributes.avatar = Number(data.avatar);
+    if (data.language !== undefined) attributes.language = data.language;
+    if (data.parent_ok !== undefined) attributes.parent_ok = data.parent_ok;
+    if (data.age_type !== undefined) attributes.age_type = data.age_type;
+
     const response = await useApi(
       '/users',
       {
         method: 'PATCH',
         body: JSON.stringify({
           data: {
-            attributes: {
-              name: data.name,
-              age: Number(data.age),
-              gender: data.gender,
-              parent_ok: data.parent_ok,
-              language: data.language,
-              legal_age: data.legal_age,
-            },
+            attributes,
           },
         }),
       },
@@ -63,7 +70,6 @@ const updateProfile = async ({ data, token }: UpdatePayload) => {
   }
 };
 
-const genderOptions = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
 const languageOptions = [
   'English',
   'Spanish',
@@ -79,39 +85,77 @@ const languageOptions = [
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
-  const { user, setUser, isLoggedIn, logout } = useUserStore();
+  const [ageTypes, setAgeTypes] = useState<AgeType[]>([]);
+  const [fetchError, setFetchError] = useState<string>('');
+  const { user, setUser, logout, access_token } = useUserStore();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const deleteCookie = useDeleteCookie();
 
-  // // Redirect if not logged in
-  // useEffect(() => {
-  //   if (!isLoggedIn) {
-  //     router.push('/');
-  //   }
-  // }, [isLoggedIn, router]);
+  const defaultAgeTypes: AgeType[] = [
+    { value: 'child', label: 'I am a child', emoji: '👶' },
+    { value: 'teen', label: 'I am a teenager', emoji: '🧒' },
+    { value: 'young_adult', label: 'I am a young adult', emoji: '🧑' },
+    { value: 'adult', label: 'I am an adult', emoji: '👨' },
+    { value: 'elder', label: 'I am an elder', emoji: '👴' },
+  ];
+
+  useEffect(() => {
+    const fetchAgeTypes = async () => {
+      try {
+        const response = await useApi('/users/age-types');
+        if (!response.ok) {
+          throw new Error('Failed to fetch age types');
+        }
+        const data = await response.json();
+
+        const mappedAgeTypes = data?.age_types?.map((ageType: string) => {
+          const defaultType = defaultAgeTypes.find(
+            (dt) => dt.value === ageType
+          );
+          return (
+            defaultType || {
+              value: ageType,
+              label: `I am a ${ageType.replace('_', ' ')}`,
+              emoji: '👤',
+            }
+          );
+        });
+        setAgeTypes(mappedAgeTypes || []);
+      } catch (error) {
+        console.error('Error fetching age types:', error);
+        setFetchError('Failed to load age types');
+        // Use default age types as fallback
+        setAgeTypes(defaultAgeTypes);
+      }
+    };
+
+    fetchAgeTypes();
+  }, []);
 
   const {
     control,
     handleSubmit,
     reset,
+    watch,
     formState: { errors, isDirty },
   } = useForm<ProfileFormData>({
     defaultValues: {
       name: user?.data?.attributes?.name || '',
-      age: user?.data?.attributes?.age || 0,
-      gender: user?.data?.attributes?.gender || '',
+      age_type: user?.data?.attributes?.age_type || '',
       language: user?.data?.attributes?.language || '',
       parent_ok: user?.data?.attributes?.parent_ok || false,
-      legal_age: user?.data?.attributes?.legal_age || false,
+      avatar: user?.data?.attributes?.avatar?.toString() || '',
     },
   });
 
+  const watchedAgeType = watch('age_type');
+
   const updateProfileMutation = useMutation({
-    mutationFn: updateProfile,
+    mutationFn: updateUser,
     mutationKey: ['profile'],
     onSuccess: (data: User) => {
       setUser({
-        access_token: user?.access_token!,
         data: data.data,
       });
       setIsEditing(false);
@@ -123,10 +167,16 @@ export default function ProfilePage() {
   });
 
   const onSubmit = (data: ProfileFormData) => {
+    const updateData: Partial<ProfileFormData> = { ...data };
+
+    // Automatically set parent_ok for child and teen
+    if (data.age_type === 'child' || data.age_type === 'teen') {
+      updateData.parent_ok = true;
+    }
+
     const payload: UpdatePayload = {
-      token: user?.access_token!,
-      data,
-      id: user?.data?.id!,
+      token: access_token,
+      data: updateData,
     };
     updateProfileMutation.mutate(payload);
   };
@@ -140,9 +190,23 @@ export default function ProfilePage() {
     router.push('/');
   };
 
-  // if (!isLoggedIn) {
-  //   return null; // Will redirect
-  // }
+  // Get the current age type display info
+  const getCurrentAgeTypeInfo = () => {
+    if (!user?.data?.attributes?.age_type)
+      return { label: 'Not specified', emoji: '❓' };
+
+    const ageTypeInfo = ageTypes.find(
+      (at) => at.value === user.data.attributes.age_type
+    );
+    return (
+      ageTypeInfo || {
+        label: user.data.attributes.age_type.replace('_', ' '),
+        emoji: '👤',
+      }
+    );
+  };
+
+  const currentAgeTypeInfo = getCurrentAgeTypeInfo();
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -214,7 +278,7 @@ export default function ProfilePage() {
                   {user?.data?.attributes?.name || 'Anonymous User'}
                 </h2>
                 <p className="text-gray-400 text-sm font-mono">
-                  ID: {user?.data?.id.slice(0, 8)}...
+                  ID: {user?.data?.id?.slice(0, 8)}...
                 </p>
               </div>
             ) : (
@@ -246,82 +310,67 @@ export default function ProfilePage() {
 
         {/* Profile Information */}
         <div className="grid gap-6">
-          {/* Age */}
+          {/* Age Type */}
           <div className="bg-gray-800 rounded-2xl p-6">
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
                 <Calendar className="h-5 w-5 text-purple-400" />
               </div>
-              <h3 className="text-lg font-semibold">Age</h3>
+              <h3 className="text-lg font-semibold">Age Type</h3>
             </div>
 
             {!isEditing ? (
-              <p className="text-gray-300 ml-13">
-                {user?.data?.attributes?.age || 'Not specified'}
-              </p>
+              <div className="flex items-center space-x-3 ml-13">
+                <span className="text-2xl">{currentAgeTypeInfo.emoji}</span>
+                <p className="text-gray-300">{currentAgeTypeInfo.label}</p>
+              </div>
             ) : (
               <div className="ml-13">
+                {fetchError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                    {fetchError}
+                  </div>
+                )}
                 <Controller
                   control={control}
-                  name="age"
-                  rules={{
-                    required: 'Age is required',
-                    min: { value: 13, message: 'Age must be at least 13' },
-                    max: { value: 120, message: 'Age must be less than 120' },
-                  }}
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <input
-                      type="number"
-                      placeholder="Enter your age"
-                      value={value || ''}
-                      onChange={onChange}
-                      onBlur={onBlur}
-                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-xl focus:outline-none focus:border-pink-500"
-                    />
+                  name="age_type"
+                  rules={{ required: 'Age type is required' }}
+                  render={({ field: { onChange, value } }) => (
+                    <div className="space-y-2">
+                      {ageTypes.map((ageType) => (
+                        <label
+                          key={ageType.value}
+                          className={`flex items-center space-x-3 p-3 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
+                            value === ageType.value
+                              ? 'border-pink-400 bg-pink-50/10'
+                              : 'border-gray-600 hover:border-gray-500'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="age_type"
+                            value={ageType.value}
+                            checked={value === ageType.value}
+                            onChange={() => onChange(ageType.value)}
+                            className="sr-only"
+                          />
+                          <span className="text-2xl">{ageType.emoji}</span>
+                          <span className="text-gray-300">{ageType.label}</span>
+                          {value === ageType.value && (
+                            <div className="ml-auto w-4 h-4 bg-pink-500 rounded-full flex items-center justify-center">
+                              <Check className="h-3 w-3 text-white" />
+                            </div>
+                          )}
+                        </label>
+                      ))}
+                    </div>
                   )}
                 />
-                {errors.age && (
+                {errors.age_type && (
                   <p className="text-red-400 text-sm mt-2">
-                    {errors.age.message}
+                    {errors.age_type.message}
                   </p>
                 )}
-              </div>
-            )}
-          </div>
-
-          {/* Gender */}
-          <div className="bg-gray-800 rounded-2xl p-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 bg-pink-500/20 rounded-full flex items-center justify-center">
-                <Users className="h-5 w-5 text-pink-400" />
-              </div>
-              <h3 className="text-lg font-semibold">Gender</h3>
-            </div>
-
-            {!isEditing ? (
-              <p className="text-gray-300 ml-13">
-                {user?.data?.attributes?.gender || 'Not specified'}
-              </p>
-            ) : (
-              <div className="ml-13">
-                <Controller
-                  control={control}
-                  name="gender"
-                  render={({ field: { onChange, value } }) => (
-                    <select
-                      value={value}
-                      onChange={onChange}
-                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-xl focus:outline-none focus:border-pink-500"
-                    >
-                      <option value="">Select gender</option>
-                      {genderOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                />
               </div>
             )}
           </div>
@@ -373,7 +422,7 @@ export default function ProfilePage() {
                 <div>
                   <h3 className="text-lg font-semibold">Parent Approval</h3>
                   <p className="text-sm text-gray-400">
-                    Required for users under 18
+                    Required for children and teenagers
                   </p>
                 </div>
               </div>
@@ -390,68 +439,37 @@ export default function ProfilePage() {
                 </span>
 
                 {isEditing && (
-                  <Controller
-                    control={control}
-                    name="parent_ok"
-                    render={({ field: { onChange, value } }) => (
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={value}
-                          onChange={onChange}
-                        />
-                        <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                      </label>
+                  <div className="flex flex-col items-end">
+                    <Controller
+                      control={control}
+                      name="parent_ok"
+                      render={({ field: { onChange, value } }) => (
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={
+                              value ||
+                              watchedAgeType === 'child' ||
+                              watchedAgeType === 'teen'
+                            }
+                            onChange={onChange}
+                            disabled={
+                              watchedAgeType === 'child' ||
+                              watchedAgeType === 'teen'
+                            }
+                          />
+                          <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500 peer-disabled:opacity-50"></div>
+                        </label>
+                      )}
+                    />
+                    {(watchedAgeType === 'child' ||
+                      watchedAgeType === 'teen') && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        Auto-enabled for minors
+                      </p>
                     )}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Legal Age */}
-          <div className="bg-gray-800 rounded-2xl p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
-                  <UserCheck className="h-5 w-5 text-green-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold">Legal Age Status</h3>
-                  <p className="text-sm text-gray-400">
-                    Confirms you are 18 or older
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-3">
-                <span
-                  className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                    user?.data?.attributes?.legal_age
-                      ? 'bg-green-500/20 text-green-400'
-                      : 'bg-yellow-500/20 text-yellow-400'
-                  }`}
-                >
-                  {user?.data?.attributes?.legal_age ? 'Legal Age' : 'Minor'}
-                </span>
-
-                {isEditing && (
-                  <Controller
-                    control={control}
-                    name="legal_age"
-                    render={({ field: { onChange, value } }) => (
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={value}
-                          onChange={onChange}
-                        />
-                        <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                      </label>
-                    )}
-                  />
+                  </div>
                 )}
               </div>
             </div>
@@ -461,7 +479,11 @@ export default function ProfilePage() {
         {/* Logout Button */}
         <div className="pt-6">
           <button
-            onClick={logout}
+            onClick={() => {
+              logout();
+              deleteCookie('access_token');
+              router.push('/');
+            }}
             className="w-full bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 text-red-400 font-semibold py-4 rounded-xl transition-colors"
           >
             Sign Out

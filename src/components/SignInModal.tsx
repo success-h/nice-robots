@@ -2,9 +2,17 @@
 
 import { useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
-import { X } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
-import useUserStore, { User } from '@/zustand/useStore';
+import useUserStore from '@/zustand/useStore';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Loader2, Sparkles } from 'lucide-react';
 
 interface SignInModalProps {
   isOpen: boolean;
@@ -19,10 +27,9 @@ export default function SignInModal({
 }: SignInModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const { setUser } = useUserStore();
+  const { setUser, setToken } = useUserStore();
 
   const signinGoogle = async (idToken: string) => {
-    console.log('first');
     try {
       const response = await useApi('/users/auth/google', {
         method: 'POST',
@@ -30,22 +37,23 @@ export default function SignInModal({
       });
       return response.json();
     } catch (error) {
-      return error;
+      // In a real application, you'd want to handle this error more gracefully
+      console.error('API call error:', error);
+      return null;
     }
   };
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
     try {
       setIsLoading(true);
-      console.log({ credentialResponse });
       if (credentialResponse?.credential) {
-        const res: User = await signinGoogle(credentialResponse.credential);
-        if (res) {
-          console.log({ res });
-          setUser(res);
+        const res = await signinGoogle(credentialResponse.credential);
+        if (res && res?.data && res?.access_token) {
+          setUser({ data: res?.data });
+          setToken(res?.access_token);
           onSuccess();
         } else {
-          console.error('No user data in response');
+          console.error('No user data or token in response');
         }
       }
     } catch (error: any) {
@@ -60,44 +68,29 @@ export default function SignInModal({
     setIsLoading(false);
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-2xl max-w-md w-full p-6 relative">
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
-        >
-          <X className="h-6 w-6" />
-        </button>
-
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[425px] p-6 text-center bg-gray-900">
         {/* Header */}
-        <div className="text-center mb-6">
-          <div className="mb-4">
-            <div className="w-16 h-16 mx-auto bg-pink-500 rounded-full flex items-center justify-center">
-              <span className="text-2xl font-bold">TR</span>
-            </div>
+        <DialogHeader className="space-y-4">
+          <div className="mx-auto w-16 h-16 bg-pink-500 rounded-full flex items-center justify-center text-white">
+            <Sparkles className="h-8 w-8" />
           </div>
-          <h2 className="text-2xl font-bold mb-2">
+          <DialogTitle className="text-3xl text-pink-500 text-center">
             {isSignUp ? 'Create Account' : 'Welcome Back'}
-          </h2>
-          <p className="text-gray-400">
+          </DialogTitle>
+          <DialogDescription className="text-center">
             {isSignUp
               ? 'Join Teens Robots to start chatting'
               : 'Sign in to continue your conversations'}
-          </p>
-        </div>
-
-        {/* Google Sign-in */}
-        <div className="space-y-4">
+          </DialogDescription>
+        </DialogHeader>
+        {/* Body */}
+        <div className="mt-6 space-y-4">
           {isLoading ? (
-            <div className="flex items-center justify-center py-4 px-6 rounded-xl bg-gray-700 w-full">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-pink-500 mr-3"></div>
-              <span className="text-gray-300">
-                {isSignUp ? 'Creating account...' : 'Signing in...'}
-              </span>
+            <div className="flex items-center justify-center p-4">
+              <Loader2 className="mr-2 h-6 w-6 animate-spin text-pink-500" />
+              <span>{isSignUp ? 'Creating account...' : 'Signing in...'}</span>
             </div>
           ) : (
             <div className="flex justify-center">
@@ -116,41 +109,42 @@ export default function SignInModal({
           {/* Terms */}
           <p className="text-xs text-center text-gray-500">
             By continuing, you agree to our{' '}
-            <a href="#" className="text-pink-400 hover:text-pink-300">
+            <a href="#" className="text-pink-400 hover:underline">
               Terms of Service
             </a>{' '}
             and{' '}
-            <a href="#" className="text-pink-400 hover:text-pink-300">
+            <a href="#" className="text-pink-400 hover:underline">
               Privacy Policy
             </a>
           </p>
-
-          {/* Toggle between sign in/up */}
-          <div className="text-center pt-4 border-t border-gray-700">
-            {isSignUp ? (
-              <p className="text-gray-400">
-                Already have an account?{' '}
-                <button
-                  onClick={() => setIsSignUp(false)}
-                  className="text-pink-400 hover:text-pink-300 font-semibold"
-                >
-                  Sign In
-                </button>
-              </p>
-            ) : (
-              <p className="text-gray-400">
-                Don&apos;t have an account?{' '}
-                <button
-                  onClick={() => setIsSignUp(true)}
-                  className="text-pink-400 hover:text-pink-300 font-semibold"
-                >
-                  Create Account
-                </button>
-              </p>
-            )}
-          </div>
         </div>
-      </div>
-    </div>
+        {/* Footer */}
+        <div className="text-center pt-4 border-t mt-4">
+          {isSignUp ? (
+            <p className="text-sm text-gray-400">
+              Already have an account?{' '}
+              <Button
+                variant="link"
+                onClick={() => setIsSignUp(false)}
+                className="p-0 h-auto text-pink-400 hover:text-pink-300"
+              >
+                Sign In
+              </Button>
+            </p>
+          ) : (
+            <p className="text-sm text-gray-400">
+              Don&apos;t have an account?{' '}
+              <Button
+                variant="link"
+                onClick={() => setIsSignUp(true)}
+                className="p-0 h-auto text-pink-400 hover:text-pink-300"
+              >
+                Create Account
+              </Button>
+            </p>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
