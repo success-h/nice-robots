@@ -892,7 +892,7 @@ export default function ChatPage() {
                 src={introVideo.attributes.url}
                 autoPlay
                 controls
-                className="w-full max-w-lg rounded-xl shadow-lg"
+                className="w-full max-w-md rounded-xl shadow-lg"
                 poster={character?.attributes?.avatar}
               >
                 Your browser does not support the video tag.
