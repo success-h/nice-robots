@@ -8,14 +8,10 @@ export const useApi = async (
   access_token?: string
 ) => {
   const withBaseUrl = `${BACKEND_URL}${url}`;
-  console.log({ withBaseUrl });
 
-  // Build headers conditionally
   const headers: Record<string, string> = {
     Authorization: `Bearer ${access_token}`,
   };
-
-  // Only add Content-Type for JSON requests, not FormData
 
   if (
     options.body &&
@@ -36,6 +32,6 @@ export const useApi = async (
   };
 
   const response = await fetch(withBaseUrl, withBaseOptions);
-  console.log({ response });
+  console.log({ response: response });
   return response;
 };
