@@ -56,6 +56,7 @@ export default function HomePage() {
     currentChat,
     setUser,
     addCharacter,
+    access_token,
   } = useUserStore();
   const router = useRouter();
 
@@ -104,17 +105,6 @@ export default function HomePage() {
 
   const handleSignInSuccess = () => {
     setShowSignInModal(false);
-    if (user?.data) {
-      if (!user?.data?.attributes?.age_type) {
-        setShowAgeTypeModal(true);
-        return;
-      }
-    }
-    if (selectedCharacter) {
-      setCharacter(selectedCharacter);
-      addCharacter(selectedCharacter);
-      router.push('/chat');
-    }
   };
 
   const isCharacterActive = (characterId: string) => {
@@ -183,7 +173,7 @@ export default function HomePage() {
             },
           }),
         },
-        token
+        access_token
       );
       const resData = await response.json();
       return resData;
