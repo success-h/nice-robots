@@ -105,6 +105,11 @@ export default function HomePage() {
 
   const handleSignInSuccess = () => {
     setShowSignInModal(false);
+    if (selectedCharacter) {
+      setCharacter(selectedCharacter);
+      addCharacter(selectedCharacter);
+      router.push('/chat');
+    }
   };
 
   const isCharacterActive = (characterId: string) => {

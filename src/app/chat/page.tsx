@@ -702,6 +702,7 @@ export default function ChatPage() {
     (video) => video.attributes.type === 'intro'
   );
 
+  console.log({ introVideo, currentChat, character });
   return (
     <div className="flex h-screen bg-gray-900">
       {/* Mobile Overlay */}
