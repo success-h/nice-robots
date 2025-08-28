@@ -45,7 +45,6 @@ const updateUser = async ({ data, token }: UpdatePayload) => {
 
     // Only include defined values in the attributes
     if (data.name !== undefined) attributes.name = data.name;
-    if (data.avatar !== undefined) attributes.avatar = Number(data.avatar);
     if (data.language !== undefined) attributes.language = data.language;
     if (data.parent_ok !== undefined) attributes.parent_ok = data.parent_ok;
     if (data.age_type !== undefined) attributes.age_type = data.age_type;
@@ -92,9 +91,14 @@ export default function ProfilePage() {
   const queryClient = useQueryClient();
   const deleteCookie = useDeleteCookie();
 
+  // Updated 'parent' and 'teen' labels, and removed 'child'
   const defaultAgeTypes: AgeType[] = [
-    { value: 'child', label: 'I am a child', emoji: '👶' },
-    { value: 'teen', label: 'I am a teenager', emoji: '🧒' },
+    {
+      value: 'parent',
+      label: 'I am a parent (for child up to 13)',
+      emoji: '👨‍👩‍👧',
+    },
+    { value: 'teen', label: 'I am a teenager (parents agree)', emoji: '🧒' },
     { value: 'young_adult', label: 'I am a young adult', emoji: '🧑' },
     { value: 'adult', label: 'I am an adult', emoji: '👨' },
     { value: 'elder', label: 'I am an elder', emoji: '👴' },
@@ -109,18 +113,21 @@ export default function ProfilePage() {
         }
         const data = await response.json();
 
-        const mappedAgeTypes = data?.age_types?.map((ageType: string) => {
-          const defaultType = defaultAgeTypes.find(
-            (dt) => dt.value === ageType
-          );
-          return (
-            defaultType || {
-              value: ageType,
-              label: `I am a ${ageType.replace('_', ' ')}`,
-              emoji: '👤',
-            }
-          );
-        });
+        // Filter out 'child' before mapping
+        const mappedAgeTypes = data?.age_types
+          ?.filter((ageType: string) => ageType !== 'child')
+          .map((ageType: string) => {
+            const defaultType = defaultAgeTypes.find(
+              (dt) => dt.value === ageType
+            );
+            return (
+              defaultType || {
+                value: ageType,
+                label: `I am a ${ageType.replace('_', ' ')}`,
+                emoji: '👤',
+              }
+            );
+          });
         setAgeTypes(mappedAgeTypes || []);
       } catch (error) {
         console.error('Error fetching age types:', error);
@@ -169,9 +176,11 @@ export default function ProfilePage() {
   const onSubmit = (data: ProfileFormData) => {
     const updateData: Partial<ProfileFormData> = { ...data };
 
-    // Automatically set parent_ok for child and teen
-    if (data.age_type === 'child' || data.age_type === 'teen') {
+    // Automatically set parent_ok for teen and parent
+    if (data.age_type === 'teen' || data.age_type === 'parent') {
       updateData.parent_ok = true;
+    } else {
+      updateData.parent_ok = false;
     }
 
     const payload: UpdatePayload = {
@@ -413,67 +422,71 @@ export default function ProfilePage() {
           </div>
 
           {/* Parent Approval */}
-          <div className="bg-gray-800 rounded-2xl p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-yellow-500/20 rounded-full flex items-center justify-center">
-                  <Shield className="h-5 w-5 text-yellow-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold">Parent Approval</h3>
-                  <p className="text-sm text-gray-400">
-                    Required for children and teenagers
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-3">
-                <span
-                  className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                    user?.data?.attributes?.parent_ok
-                      ? 'bg-green-500/20 text-green-400'
-                      : 'bg-yellow-500/20 text-yellow-400'
-                  }`}
-                >
-                  {user?.data?.attributes?.parent_ok ? 'Approved' : 'Pending'}
-                </span>
-
-                {isEditing && (
-                  <div className="flex flex-col items-end">
-                    <Controller
-                      control={control}
-                      name="parent_ok"
-                      render={({ field: { onChange, value } }) => (
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            className="sr-only peer"
-                            checked={
-                              value ||
-                              watchedAgeType === 'child' ||
-                              watchedAgeType === 'teen'
-                            }
-                            onChange={onChange}
-                            disabled={
-                              watchedAgeType === 'child' ||
-                              watchedAgeType === 'teen'
-                            }
-                          />
-                          <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500 peer-disabled:opacity-50"></div>
-                        </label>
-                      )}
-                    />
-                    {(watchedAgeType === 'child' ||
-                      watchedAgeType === 'teen') && (
-                      <p className="text-xs text-gray-400 mt-1">
-                        Auto-enabled for minors
-                      </p>
-                    )}
+          {(user?.data?.attributes?.age_type === 'teen' ||
+            user?.data?.attributes?.age_type === 'parent' ||
+            isEditing) && (
+            <div className="bg-gray-800 rounded-2xl p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-yellow-500/20 rounded-full flex items-center justify-center">
+                    <Shield className="h-5 w-5 text-yellow-400" />
                   </div>
-                )}
+                  <div>
+                    <h3 className="text-lg font-semibold">Parent Approval</h3>
+                    <p className="text-sm text-gray-400">
+                      Required for children and teenagers
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                      user?.data?.attributes?.parent_ok
+                        ? 'bg-green-500/20 text-green-400'
+                        : 'bg-yellow-500/20 text-yellow-400'
+                    }`}
+                  >
+                    {user?.data?.attributes?.parent_ok ? 'Approved' : 'Pending'}
+                  </span>
+
+                  {isEditing && (
+                    <div className="flex flex-col items-end">
+                      <Controller
+                        control={control}
+                        name="parent_ok"
+                        render={({ field: { onChange, value } }) => (
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="sr-only peer"
+                              checked={
+                                value ||
+                                watchedAgeType === 'teen' ||
+                                watchedAgeType === 'parent'
+                              }
+                              onChange={onChange}
+                              disabled={
+                                watchedAgeType === 'teen' ||
+                                watchedAgeType === 'parent'
+                              }
+                            />
+                            <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500 peer-disabled:opacity-50"></div>
+                          </label>
+                        )}
+                      />
+                      {(watchedAgeType === 'teen' ||
+                        watchedAgeType === 'parent') && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Auto-enabled for minors
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Logout Button */}

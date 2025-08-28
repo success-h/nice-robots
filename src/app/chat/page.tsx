@@ -12,6 +12,8 @@ import {
   Plus,
   MessageSquare,
   Loader2,
+  Edit2,
+  PanelRight,
 } from 'lucide-react';
 import useUserStore, {
   Message,
@@ -22,17 +24,22 @@ import Image from 'next/image';
 import Link from 'next/link';
 import ChatList from '@/components/ChatList';
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { FiTrash } from 'react-icons/fi';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+
 import { Button } from '@/components/ui/button';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { useRouter } from 'next/navigation';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from '@/components/ui/carousel';
 
 export default function ChatPage() {
   const [inputMessage, setInputMessage] = useState('');
@@ -44,12 +51,13 @@ export default function ChatPage() {
   const [isMuted, setIsMuted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [relationshipTypes, setRelationshipTypes] = useState<string[]>([]);
   const [selectedRelationship, setSelectedRelationship] = useState<string>('');
   const [isCreatingChat, setIsCreatingChat] = useState(false);
-  const [hasChatObject, setHasChatObject] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const {
     currentChat,
@@ -64,12 +72,19 @@ export default function ChatPage() {
     characters,
     deleteChat,
     deleteCharacter,
+    user,
   } = useUserStore();
+
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth < 768) {
+      const isMobileDevice = window.innerWidth < 768;
+      setIsMobile(isMobileDevice);
+      if (isMobileDevice) {
         setSidebarOpen(false);
+        setIsRightSidebarOpen(false);
+      } else {
+        setSidebarOpen(true);
+        setIsRightSidebarOpen(true);
       }
     };
 
@@ -174,11 +189,11 @@ export default function ChatPage() {
                         const moderationParsedData =
                           await moderationResponse.json();
                         if (
-                          moderationParsedData.data.message_id &&
+                          moderationParsedData?.data?.message_id &&
                           response_type === 'voice'
                         ) {
                           await fetchAudioStream(
-                            moderationParsedData.data.message_id
+                            moderationParsedData?.data?.message_id
                           );
                         }
                         assistantMessage.content =
@@ -412,6 +427,10 @@ export default function ChatPage() {
   };
 
   useEffect(() => {
+    createNewChat();
+  }, [selectedRelationship]);
+
+  useEffect(() => {
     const fetchRelationshipTypes = async () => {
       if (character?.id) {
         try {
@@ -423,9 +442,6 @@ export default function ChatPage() {
           const data = await response.json();
           const types = data.relationship_types || [];
           setRelationshipTypes(types);
-          if (types.length > 0) {
-            setSelectedRelationship(types[0]);
-          }
         } catch (error) {
           console.error('Failed to fetch relationship types:', error);
         }
@@ -459,7 +475,6 @@ export default function ChatPage() {
       if (!data?.errors) {
         setCurrentChat(data);
         setChats(data);
-        setHasChatObject(true);
         return data;
       }
     } catch (error) {
@@ -475,12 +490,10 @@ export default function ChatPage() {
     }
   }, [character]);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentChat?.chatHistory]);
 
-  // Audio transcription function (your existing implementation)
   const transcribeAudio = async (audioBlob: Blob) => {
     try {
       if (!audioBlob || audioBlob.size === 0) {
@@ -665,44 +678,42 @@ export default function ChatPage() {
     character_id: string
   ) => {
     setDeleteLoading(true);
-    try {
-      await useApi(
-        `/chats/${id}`,
-        {
-          method: 'DELETE',
-        },
-        access_token
-      );
-      deleteChat(id!);
-      deleteCharacter(character_id!);
-      setDeleteLoading(false);
-
-      const nextCharacter = characters?.[0];
-      setCharacter(nextCharacter!);
-      setChats(
-        chats?.find(
-          (chat) =>
-            chat?.data?.relationships?.character?.id === nextCharacter?.id
-        )!
-      );
-      setCurrentChat(
-        chats?.find(
-          (chat) =>
-            chat?.data?.relationships?.character?.id === nextCharacter?.id
-        )!
-      );
-      return;
-    } catch (error) {
-      setDeleteLoading(false);
-      return error;
-    }
+    await useApi(
+      `/chats/${id}`,
+      {
+        method: 'DELETE',
+      },
+      access_token
+    );
+    deleteChat(id!);
+    deleteCharacter(character_id!);
+    setDeleteLoading(false);
+    const nextCharacter = characters?.[0];
+    setCharacter(nextCharacter!);
+    setChats(
+      chats?.find(
+        (chat) => chat?.data?.relationships?.character?.id === nextCharacter?.id
+      )!
+    );
+    setCurrentChat(
+      chats?.find(
+        (chat) => chat?.data?.relationships?.character?.id === nextCharacter?.id
+      )!
+    );
   };
+
+  useEffect(() => {
+    if (!characters?.length) {
+      router.push('/');
+      return;
+    }
+  }, [characters]);
 
   const introVideo = character?.relationships?.videos?.find(
     (video) => video.attributes.type === 'intro'
   );
 
-  console.log({ introVideo, currentChat, character });
+  console.log({ character });
   return (
     <div className="flex h-screen bg-gray-900">
       {/* Mobile Overlay */}
@@ -710,6 +721,13 @@ export default function ChatPage() {
         <div
           className="fixed inset-0 bg-black opacity-50 z-40 md:hidden"
           onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {isMobile && isRightSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black opacity-50 z-40 md:hidden"
+          onClick={() => setIsRightSidebarOpen(false)}
         />
       )}
 
@@ -749,85 +767,19 @@ export default function ChatPage() {
         />
 
         <div className="p-3 border-t border-gray-700">
-          <div className="flex items-center space-x-3">
+          <Link
+            href={'/profile'}
+            className="flex cursor-pointer items-center space-x-3 w-full text-left text-gray-400 hover:text-white"
+          >
             <Image
-              src={character?.attributes?.avatar || '/default-avatar.png'}
-              alt={character?.attributes?.name || 'User'}
+              src={user?.data?.attributes?.avatar || '/default-avatar.png'}
+              alt={character?.attributes?.name!}
               width={32}
               height={32}
               className="rounded-full"
             />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">
-                {character?.attributes.name}
-              </p>
-              <p className="text-xs text-gray-400 truncate">
-                {chats?.find(
-                  (c) => c?.data?.relationships?.character?.id === character?.id
-                )?.chatHistory &&
-                chats?.find(
-                  (c) => c?.data?.relationships?.character?.id === character?.id
-                )?.chatHistory?.length! > 0
-                  ? chats
-                      ?.find(
-                        (c) =>
-                          c?.data?.relationships?.character?.id ===
-                          character?.id
-                      )
-                      ?.chatHistory?.[
-                        chats?.find(
-                          (c) =>
-                            c?.data?.relationships?.character?.id ===
-                            character?.id
-                        )?.chatHistory?.length! - 1
-                      ]?.content.slice(0, 30) + '...'
-                  : 'New conversation'}
-              </p>
-            </div>
-            <div className="ml-2">
-              <Dialog>
-                <DialogTrigger className="cursor-pointer">
-                  <FiTrash />
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle className="text-black">
-                      Are you absolutely sure?
-                    </DialogTitle>
-                    <DialogDescription>
-                      This action cannot be undone. This will permanently delete
-                      your account and remove your data from our servers.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter>
-                    <DialogClose>
-                      <Button variant={'outline'} className="text-black">
-                        Cancel
-                      </Button>
-                    </DialogClose>
-                    <Button
-                      onClick={() => {
-                        handleDeleteChat(
-                          chats?.find(
-                            (chat) =>
-                              chat.data.relationships.character.id ===
-                              character?.id
-                          )?.data?.id,
-                          character?.id!
-                        );
-                      }}
-                      className="bg-red-500"
-                    >
-                      {deleteLoading && (
-                        <Loader2 className="mr-2 h-6 w-6 animate-spin text-pink-500" />
-                      )}
-                      Yes, Delete chat
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
+            <span>Profile settings</span>
+          </Link>
         </div>
       </div>
 
@@ -846,41 +798,116 @@ export default function ChatPage() {
                 </button>
               )}
               <div className="flex items-center gap-x-1">
-                <h1 className="text-lg font-semibold text-gray-100">
-                  {character?.attributes?.name}
-                </h1>
-                <div className="bg-green-400 h-2 w-2 rounded-full"></div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <h1 className="text-lg font-semibold text-gray-100 cursor-pointer">
+                      <span className="font-bold">
+                        {character?.attributes?.name}
+                      </span>
+                      {currentChat?.data?.attributes?.relationship_type &&
+                        ` (${currentChat?.data?.attributes?.relationship_type})`}
+                    </h1>
+                  </PopoverTrigger>
+                  <PopoverContent className="border bg-gray-700 border-gray-400">
+                    <div className="space-y-4">
+                      <h3 className="text-xl font-semibold text-white">
+                        Choose a relationship
+                      </h3>
+                      <div className="flex flex-wrap justify-self-auto gap-2 text-sm">
+                        {relationshipTypes.map((type) => (
+                          <Button
+                            key={type}
+                            variant={
+                              selectedRelationship === type
+                                ? 'default'
+                                : 'outline'
+                            }
+                            className={`text-white border-white bg-transparent ${
+                              selectedRelationship === type &&
+                              'border bg-black/60 text-white'
+                            }`}
+                            onClick={() => {
+                              const userMessage: Message = {
+                                role: 'user',
+                                content: `Be my ${type}`,
+                              };
+
+                              updateChatHistory(
+                                userMessage,
+                                currentChat?.data?.id!
+                              );
+                              sendMessage(userMessage, currentChat?.data?.id!);
+                            }}
+                            disabled={
+                              isCreatingChat && selectedRelationship === type
+                            }
+                          >
+                            {isCreatingChat &&
+                              selectedRelationship === type && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              )}
+                            {type}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-5">
               {/* Response Type Toggle */}
-              <div className="flex items-center space-x-2 bg-gray-800 rounded-lg p-2">
-                <span className="text-xs text-gray-400">
-                  {currentChat?.data?.attributes?.return_type || response_type}
-                </span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer text-lg"
-                    checked={response_type === 'voice'}
-                    onChange={toggleResponseType}
-                  />
-                  <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
-                </label>
-              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <h1 className="capitalize border rounded-lg flex items-center gap-1 px-3 py-1 font-semibold text-gray-100 cursor-pointer">
+                    {currentChat?.data?.attributes?.return_type}{' '}
+                    <Edit2 size={15} />
+                  </h1>
+                </PopoverTrigger>
+                <PopoverContent className="border bg-gray-700 border-gray-400">
+                  <div className="space-y-4">
+                    <RadioGroup
+                      onValueChange={toggleResponseType}
+                      value={currentChat?.data?.attributes?.return_type}
+                    >
+                      {[
+                        {
+                          value: 'voice',
+                          label: 'Voice',
+                        },
+                        {
+                          value: 'text',
+                          label: 'Text',
+                        },
+                      ].map((item) => (
+                        <div
+                          key={item.label}
+                          className="flex items-center cursor-pointer text-white space-x-2"
+                        >
+                          <RadioGroupItem value={item.value} id={item.value} />
+                          <Label htmlFor={item.value}>{item.label}</Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
               {sidebarOpen && (
                 <Button
                   onClick={() => setSidebarOpen(false)}
-                  className="p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
+                  className="p-2 text-gray-400 hover:text-gray-200 rounded-lg border bg-transparent transition-colors"
                 >
-                  <ArrowLeft className="w-5 h-5" />
+                  <ArrowLeft className="w-5 h-5 text-white" />
                 </Button>
               )}
-              {/* <button className="p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors">
-                <Settings className="w-5 h-5" />
-              </button> */}
+              <button
+                onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+                className="p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                <PanelRight className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>
@@ -917,21 +944,15 @@ export default function ChatPage() {
                       'border bg-emerald-500 text-white'
                     }`}
                     onClick={() => setSelectedRelationship(type)}
+                    disabled={isCreatingChat && selectedRelationship === type}
                   >
+                    {isCreatingChat && selectedRelationship === type && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
                     {type}
                   </Button>
                 ))}
               </div>
-              <Button
-                onClick={createNewChat}
-                disabled={isCreatingChat || !selectedRelationship}
-                className="bg-gray-900 border h-12 px-7 rounded-full"
-              >
-                {isCreatingChat && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Befriend
-              </Button>
             </div>
           </div>
         )}
@@ -963,9 +984,16 @@ export default function ChatPage() {
                           />
                         ) : (
                           <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
-                            <span className="text-white text-sm font-medium">
-                              U
-                            </span>
+                            <Image
+                              src={
+                                user?.data?.attributes?.avatar ||
+                                '/default-avatar.png'
+                              }
+                              alt={character?.attributes?.name!}
+                              width={32}
+                              height={32}
+                              className="rounded-full"
+                            />
                           </div>
                         )}
                       </div>
@@ -1150,6 +1178,54 @@ export default function ChatPage() {
             )}
           </div>
         </div>
+      </div>
+      <div
+        className={`
+        ${isMobile ? 'fixed right-0 top-0 h-full z-50' : 'relative'}
+        ${isRightSidebarOpen ? (isMobile ? 'w-80' : 'w-72') : 'w-0'} 
+        transition-all duration-300 bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden
+        ${
+          isMobile && !isRightSidebarOpen ? 'translate-x-full' : 'translate-x-0'
+        }
+      `}
+      >
+        {isRightSidebarOpen && character && (
+          <div>
+            <Carousel>
+              <CarouselContent className="h-[500px]">
+                {character?.relationships?.images?.map((item) => {
+                  return (
+                    <CarouselItem className="w-full h-full">
+                      <Image
+                        key={item.id}
+                        className="h-full w-full object-cover"
+                        src={item?.attributes?.url}
+                        height={500}
+                        width={300}
+                        alt={item?.type}
+                      />
+                    </CarouselItem>
+                  );
+                })}
+              </CarouselContent>
+              <CarouselPrevious className="ml-12 text-black" />
+              <CarouselNext className="mr-12 text-black" />
+            </Carousel>
+
+            <div className="p-4 flex flex-col items-center space-y-4 h-full">
+              <div className=" bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
+                <div className="text-white">
+                  <h2 className="text-2xl font-bold">
+                    {character.attributes.name}
+                  </h2>
+                  <p className="text-sm mt-1 whitespace-pre-wrap">
+                    {character.attributes.summary}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

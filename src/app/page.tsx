@@ -3,12 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { Menu, User, Crown, Loader, X } from 'lucide-react';
+import { Menu, User, Loader, X } from 'lucide-react';
 import useUserStore, { CharacterData } from '../zustand/useStore';
 import { useApi } from '../hooks/useApi';
 import SignInModal from '../components/SignInModal';
 import Image from 'next/image';
-import { parseApiResponse } from '@/lib/utils';
 import Link from 'next/link';
 import AgeTypeModal from '@/components/AgeTypesModal';
 import { useGetCookie } from 'cookies-next';
@@ -236,20 +235,6 @@ export default function HomePage() {
             <User className="w-4 h-4" />
             <span>Profile settings</span>
           </Link>
-          <button
-            onClick={closeMobileMenu}
-            className="flex cursor-pointer items-center space-x-3 w-full text-left text-gray-400 hover:text-white"
-          >
-            <span>💬</span>
-            <span>Discord</span>
-          </button>
-          <button
-            onClick={closeMobileMenu}
-            className="flex cursor-pointer items-center space-x-3 w-full text-left text-gray-400 hover:text-white"
-          >
-            <span>❓</span>
-            <span>Help Center</span>
-          </button>
         </div>
       </div>
     </>

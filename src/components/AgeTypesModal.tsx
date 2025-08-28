@@ -1,5 +1,6 @@
 import { useApi } from '@/hooks/useApi';
 import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 
 interface AgeType {
   value: string;
@@ -25,8 +26,13 @@ const AgeTypeModal: React.FC<AgeTypeModalProps> = ({
   const [fetchError, setFetchError] = useState<string>('');
 
   const defaultAgeTypes: AgeType[] = [
-    { value: 'child', label: 'I am a child', emoji: '👶' },
-    { value: 'teen', label: 'I am a teenager', emoji: '🧒' },
+    // Updated 'parent' and 'teen' labels, and removed 'child'
+    {
+      value: 'parent',
+      label: 'I am a parent (for child up to 13)',
+      emoji: '👨‍👩‍👧',
+    },
+    { value: 'teen', label: 'I am a teenager (parents agree)', emoji: '🧒' },
     { value: 'young_adult', label: 'I am a young adult', emoji: '🧑' },
     { value: 'adult', label: 'I am an adult', emoji: '👨' },
     { value: 'elder', label: 'I am an elder', emoji: '👴' },
@@ -41,18 +47,21 @@ const AgeTypeModal: React.FC<AgeTypeModalProps> = ({
         }
         const data = await response.json();
 
-        const mappedAgeTypes = data?.age_types?.map((ageType: string) => {
-          const defaultType = defaultAgeTypes.find(
-            (dt) => dt.value === ageType
-          );
-          return (
-            defaultType || {
-              value: ageType,
-              label: `I am a ${ageType.replace('_', ' ')}`,
-              emoji: '👤',
-            }
-          );
-        });
+        // Filter out the 'child' type before mapping
+        const mappedAgeTypes = data?.age_types
+          ?.filter((ageType: string) => ageType !== 'child')
+          .map((ageType: string) => {
+            const defaultType = defaultAgeTypes.find(
+              (dt) => dt.value === ageType
+            );
+            return (
+              defaultType || {
+                value: ageType,
+                label: `I am a ${ageType.replace('_', ' ')}`,
+                emoji: '👤',
+              }
+            );
+          });
         setAgeTypes(mappedAgeTypes);
       } catch (error) {
         console.error('Error fetching age types:', error);
@@ -89,6 +98,13 @@ const AgeTypeModal: React.FC<AgeTypeModalProps> = ({
 
       {/* Modal container */}
       <div className="relative w-full max-w-md mx-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-pink-100">
+        {/* Close button added here */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-800 transition-colors z-10"
+        >
+          <X size={24} />
+        </button>
         {/* Modal content */}
         <div className="p-8">
           {/* Header */}

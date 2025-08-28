@@ -33,8 +33,6 @@ function ChatList({
   handleDeleteChat,
   deleteLoading,
 }: Props) {
-  // Memoize the chat history to avoid redundant calculations.
-  // We'll create a map for O(1) lookups inside the loop.
   const chatHistoryMap = useMemo(() => {
     if (!chats) return new Map();
     return chats.reduce((map, item) => {
@@ -45,19 +43,6 @@ function ChatList({
     }, new Map());
   }, [chats]);
 
-  // const getAvailableCharacters = () => {
-  //   if (!characters) return [];
-
-  //   // Get character IDs that already have active chats
-  //   const activeCharacterIds =
-  //     chats?.map((chat) => chat.data.relationships.character.id) || [];
-
-  //   return characters.filter((character) =>
-  //     activeCharacterIds.includes(character.id)
-  //   );
-  // };
-
-  console.log({ currentChat });
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="p-2 space-y-1">
@@ -97,7 +82,7 @@ function ChatList({
                 </p>
                 <p className="text-xs text-gray-400 truncate">
                   {lastMessage?.slice(0, 30)}
-                  {lastMessage.length > 30 ? '...' : ''}
+                  {lastMessage?.length > 30 ? '...' : ''}
                 </p>
               </div>
               <div className="ml-2">
