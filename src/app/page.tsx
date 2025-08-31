@@ -56,6 +56,7 @@ export default function HomePage() {
     setUser,
     addCharacter,
     access_token,
+    characters,
   } = useUserStore();
   const router = useRouter();
 
@@ -71,7 +72,7 @@ export default function HomePage() {
         return;
       }
     }
-  }, [user]);
+  }, []);
 
   const getSortedCharacters = () => {
     if (!data?.data) return [];
@@ -104,6 +105,10 @@ export default function HomePage() {
 
   const handleSignInSuccess = () => {
     setShowSignInModal(false);
+    if (!user?.data?.attributes?.age_type) {
+      setShowAgeTypeModal(true);
+      return;
+    }
     if (selectedCharacter) {
       setCharacter(selectedCharacter);
       addCharacter(selectedCharacter);
@@ -113,7 +118,7 @@ export default function HomePage() {
 
   const isCharacterActive = (characterId: string) => {
     const activeCharacterIds =
-      chats?.map((chat) => chat?.data?.relationships?.character?.id) || [];
+      characters?.map((character) => character?.id) || [];
     return activeCharacterIds.includes(characterId);
   };
 
@@ -226,16 +231,18 @@ export default function HomePage() {
           </button>
         </nav>
 
-        <div className="absolute bottom-6 left-6 right-6 space-y-3">
-          <Link
-            href={'/profile'}
-            onClick={closeMobileMenu}
-            className="flex cursor-pointer items-center space-x-3 w-full text-left text-gray-400 hover:text-white"
-          >
-            <User className="w-4 h-4" />
-            <span>Profile settings</span>
-          </Link>
-        </div>
+        {user?.data && (
+          <div className="absolute bottom-6 left-6 right-6 space-y-3">
+            <Link
+              href={'/profile'}
+              onClick={closeMobileMenu}
+              className="flex cursor-pointer items-center space-x-3 w-full text-left text-gray-400 hover:text-white"
+            >
+              <User className="w-4 h-4" />
+              <span>Profile settings</span>
+            </Link>
+          </div>
+        )}
       </div>
     </>
   );

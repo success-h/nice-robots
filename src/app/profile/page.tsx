@@ -13,12 +13,25 @@ import {
   Globe,
   Shield,
   UserCheck,
+  Loader2,
 } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import useUserStore, { User } from '@/zustand/useStore';
 import { useApi } from '../../hooks/useApi';
 import Image from 'next/image';
 import { useDeleteCookie, useGetCookie } from 'cookies-next';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { FiTrash2 } from 'react-icons/fi';
+import { Button } from '@/components/ui/button';
 
 interface AgeType {
   value: string;
@@ -90,8 +103,8 @@ export default function ProfilePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const deleteCookie = useDeleteCookie();
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Updated 'parent' and 'teen' labels, and removed 'child'
   const defaultAgeTypes: AgeType[] = [
     {
       value: 'parent',
@@ -216,6 +229,20 @@ export default function ProfilePage() {
   };
 
   const currentAgeTypeInfo = getCurrentAgeTypeInfo();
+
+  const handleDeleteUser = async () => {
+    setDeleteLoading(true);
+    await useApi(
+      `/users`,
+      {
+        method: 'DELETE',
+      },
+      access_token
+    );
+    setDeleteLoading(false);
+    logout();
+    router.push('/');
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -490,17 +517,51 @@ export default function ProfilePage() {
         </div>
 
         {/* Logout Button */}
-        <div className="pt-6">
+        <div className="pt-6 flex items-center gap-4">
           <button
             onClick={() => {
               logout();
               deleteCookie('access_token');
               router.push('/');
             }}
-            className="w-full bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 text-red-400 font-semibold py-4 rounded-xl transition-colors"
+            className="w-full cursor-pointer bg-blue-400/50  border-red-500/30 hover:bg-red-500/30 text-white font-semibold py-4 rounded-xl transition-colors"
           >
             Sign Out
           </button>
+          <Dialog>
+            <DialogTrigger className="w-full cursor-pointer bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 text-red-400 font-semibold py-4 rounded-xl transition-colors">
+              Delete Account
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="text-black">
+                  Are you absolutely sure?
+                </DialogTitle>
+                <DialogDescription>
+                  This action cannot be undone. This will permanently delete
+                  your account from our servers.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <DialogClose>
+                  <Button variant={'outline'} className="text-black">
+                    Cancel
+                  </Button>
+                </DialogClose>
+                <Button
+                  onClick={() => {
+                    handleDeleteUser();
+                  }}
+                  className="bg-red-500"
+                >
+                  {deleteLoading && (
+                    <Loader2 className="mr-2 h-6 w-6 animate-spin text-pink-500" />
+                  )}
+                  Yes, Delete chat
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Error Message */}

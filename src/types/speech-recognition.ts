@@ -85,3 +85,9 @@ interface Window {
   SpeechRecognition: typeof SpeechRecognition;
   webkitSpeechRecognition: typeof webkitSpeechRecognition;
 }
+
+export type Message = {
+  role: string;
+  content: string;
+  isBouncyEmoji?: boolean;
+};

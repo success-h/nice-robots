@@ -40,6 +40,11 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export default function ChatPage() {
   const [inputMessage, setInputMessage] = useState('');
@@ -73,6 +78,7 @@ export default function ChatPage() {
     deleteChat,
     deleteCharacter,
     user,
+    addCharacter,
   } = useUserStore();
 
   useEffect(() => {
@@ -207,6 +213,7 @@ export default function ChatPage() {
                     } else {
                       // Regular streaming content
                       let content = '';
+                      console.log({ parsed: parsed.choices?.[0] });
                       if (parsed.choices?.[0]?.delta?.content) {
                         content = parsed.choices[0].delta.content;
                       } else if (parsed.content) {
@@ -219,6 +226,10 @@ export default function ChatPage() {
                         messageId = parsed.message_id;
                       }
 
+                      const isSingleEmoji = /^\p{Emoji}$/u.test(content);
+                      if (isSingleEmoji) {
+                        assistantMessage.isBouncyEmoji = true;
+                      }
                       if (content) {
                         assistantMessage.content += content;
                         if (response_type === 'text') {
@@ -285,9 +296,25 @@ export default function ChatPage() {
             return;
           }
         }
-
         const parsedData = await response.json();
-        assistantMessage.content = parsedData.data.text;
+
+        let emojiString = '';
+        if (parsedData.data.emojis && parsedData.data.emojis.length > 0) {
+          emojiString = parsedData.data.emojis.join(' ') + ' ';
+        } else if (
+          parsedData.data.reaction &&
+          parsedData.data.reaction.length > 0
+        ) {
+          emojiString = parsedData.data.reaction.join(' ') + ' ';
+        }
+        assistantMessage.content = emojiString + parsedData.data.text;
+
+        const isSingleEmoji = /^\p{Emoji}$/u.test(
+          assistantMessage.content.trim()
+        );
+        if (isSingleEmoji) {
+          assistantMessage.isBouncyEmoji = true;
+        }
         updateChatHistory(assistantMessage, currentChat?.data.id!);
 
         if (parsedData.data.message_id && response_type === 'voice') {
@@ -703,20 +730,42 @@ export default function ChatPage() {
   };
 
   useEffect(() => {
-    if (!characters?.length) {
-      router.push('/');
+    if (user?.data) {
+      if (!characters?.length) {
+        router.push('/');
+      }
       return;
     }
   }, [characters]);
+
+  async function handleRelationshipChange(type: string) {
+    try {
+      await useApi(
+        `/chats/${currentChat?.data?.id}/update-relationship`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            data: { attributes: { relationship_type: type } },
+          }),
+        },
+        access_token
+      );
+      loadChatHistory();
+      const userMessage: Message = {
+        role: 'user',
+        content: `Be my ${type}`,
+      };
+      updateChatHistory(userMessage, currentChat?.data?.id!);
+      sendMessage(userMessage, currentChat?.data?.id!);
+    } catch (error) {}
+  }
 
   const introVideo = character?.relationships?.videos?.find(
     (video) => video.attributes.type === 'intro'
   );
 
-  console.log({ character });
   return (
     <div className="flex h-screen bg-gray-900">
-      {/* Mobile Overlay */}
       {isMobile && sidebarOpen && (
         <div
           className="fixed inset-0 bg-black opacity-50 z-40 md:hidden"
@@ -799,15 +848,24 @@ export default function ChatPage() {
               )}
               <div className="flex items-center gap-x-1">
                 <Popover>
-                  <PopoverTrigger asChild>
-                    <h1 className="text-lg font-semibold text-gray-100 cursor-pointer">
-                      <span className="font-bold">
-                        {character?.attributes?.name}
-                      </span>
-                      {currentChat?.data?.attributes?.relationship_type &&
-                        ` (${currentChat?.data?.attributes?.relationship_type})`}
-                    </h1>
-                  </PopoverTrigger>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <PopoverTrigger asChild>
+                        <Button className="text-lg flex items-center font-semibold capitalize text-gray-100 cursor-pointer">
+                          <span className="font-bold">
+                            {character?.attributes?.name}
+                          </span>
+                          {currentChat?.data?.attributes?.relationship_type &&
+                            ` (${currentChat?.data?.attributes?.relationship_type})`}{' '}
+                          <div className="h-3 w-3 bg-green-500 rounded-full"></div>
+                        </Button>
+                      </PopoverTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Change relationship</p>
+                    </TooltipContent>
+                  </Tooltip>
+
                   <PopoverContent className="border bg-gray-700 border-gray-400">
                     <div className="space-y-4">
                       <h3 className="text-xl font-semibold text-white">
@@ -827,16 +885,7 @@ export default function ChatPage() {
                               'border bg-black/60 text-white'
                             }`}
                             onClick={() => {
-                              const userMessage: Message = {
-                                role: 'user',
-                                content: `Be my ${type}`,
-                              };
-
-                              updateChatHistory(
-                                userMessage,
-                                currentChat?.data?.id!
-                              );
-                              sendMessage(userMessage, currentChat?.data?.id!);
+                              handleRelationshipChange(type);
                             }}
                             disabled={
                               isCreatingChat && selectedRelationship === type
@@ -1022,9 +1071,15 @@ export default function ChatPage() {
                                 : 'bg-gray-800 text-gray-100'
                             }`}
                           >
-                            <p className="text-sm whitespace-pre-wrap">
+                            <div
+                              className={`message-bubble whitespace-pre-wrap ${
+                                message.isBouncyEmoji
+                                  ? 'bounce-effect text-4xl'
+                                  : 'text-sm'
+                              }`}
+                            >
                               {message.content}
-                            </p>
+                            </div>
                           </div>
                         )}
                         {message.moderationFailed && (

@@ -98,6 +98,7 @@ export type Message = {
   isResolutionResponse?: boolean;
   messageType?: 'text' | 'video'; // Add this line
   videoUrl?: string;
+  isBouncyEmoji?: boolean;
 };
 
 export type ModerationDetails = {
