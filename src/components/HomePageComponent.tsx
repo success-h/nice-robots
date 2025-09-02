@@ -299,7 +299,7 @@ export default function HomePageComponent({ access_token }: Props) {
                 {/* Mobile Logo */}
                 {isMobile && (
                   <h1 className="text-xl font-bold">
-                    Nice<span className="text-pink-500">robots</span>
+                    Nice Ro<span className="text-pink-500">bots AI</span>
                   </h1>
                 )}
               </div>
