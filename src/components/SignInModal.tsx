@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Loader2, Sparkles } from 'lucide-react';
+import { setCookie } from 'cookies-next';
 
 interface SignInModalProps {
   isOpen: boolean;
@@ -51,6 +52,7 @@ export default function SignInModal({
         if (res && res?.data && res?.access_token) {
           setUser({ data: res?.data });
           setToken(res?.access_token);
+          setCookie('access-token', res?.access_token!);
           onSuccess();
         } else {
           console.error('No user data or token in response');

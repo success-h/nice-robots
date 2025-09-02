@@ -23,6 +23,7 @@ type Props = {
   currentChat: ChatData;
   handleDeleteChat: (id: string, character_id: string) => void;
   deleteLoading: boolean;
+  updateCharacterVideoPlayed: () => void;
 };
 
 function ChatList({
@@ -32,6 +33,7 @@ function ChatList({
   currentChat,
   handleDeleteChat,
   deleteLoading,
+  updateCharacterVideoPlayed,
 }: Props) {
   const chatHistoryMap = useMemo(() => {
     if (!chats) return new Map();
@@ -59,6 +61,7 @@ function ChatList({
             <div
               key={character?.id}
               onClick={() => {
+                updateCharacterVideoPlayed();
                 setCharacter(character);
               }}
               className={cn(

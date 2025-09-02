@@ -15,6 +15,7 @@ export interface CharacterData {
     residence_intro: string;
     mission_intro: string;
     available_relationship_types: string[];
+    video_played?: boolean; // Added this field
   };
   relationships: {
     images: {
@@ -133,6 +134,7 @@ export interface UserState {
   setToken: (token: CookieValueTypes) => unknown;
   addCharacter: (characterData: CharacterData) => void;
   deleteCharacter: (characterId: string) => void;
+  updateCharacterVideoPlayed: (characterId: string) => void; // Added this method
 }
 
 const trimMessagesToLimit = (
@@ -177,8 +179,16 @@ const useUserStore = create<UserState>()(
             return state;
           }
 
+          const newCharacterData = {
+            ...characterData,
+            attributes: {
+              ...characterData.attributes,
+              video_played: false,
+            },
+          };
+
           return {
-            characters: [...existingCharacters, characterData],
+            characters: [...existingCharacters, newCharacterData],
           };
         });
       },
@@ -198,6 +208,39 @@ const useUserStore = create<UserState>()(
           return {
             characters: updatedCharacters.length > 0 ? updatedCharacters : null,
             character: newCurrentCharacter,
+          };
+        });
+      },
+      updateCharacterVideoPlayed: (characterId) => {
+        set((state) => {
+          const updatedCharacters =
+            state.characters?.map((char) => {
+              if (char.id === characterId) {
+                return {
+                  ...char,
+                  attributes: {
+                    ...char.attributes,
+                    video_played: true,
+                  },
+                };
+              }
+              return char;
+            }) || null;
+
+          const updatedCurrentCharacter =
+            state.character?.id === characterId
+              ? {
+                  ...state.character,
+                  attributes: {
+                    ...state.character.attributes,
+                    video_played: true,
+                  },
+                }
+              : state.character;
+
+          return {
+            characters: updatedCharacters,
+            character: updatedCurrentCharacter,
           };
         });
       },
@@ -470,11 +513,26 @@ const useUserStore = create<UserState>()(
           access_token: token,
         }),
 
-      setCharacter: (characterData) =>
-        set({
-          character: characterData,
-          hasCharacter: !!characterData,
-        }),
+      setCharacter: (characterData) => {
+        set((state) => {
+          const videoPlayed =
+            characterData?.attributes?.video_played !== undefined
+              ? characterData.attributes.video_played
+              : false;
+          return {
+            character: characterData
+              ? {
+                  ...characterData,
+                  attributes: {
+                    ...characterData.attributes,
+                    video_played: videoPlayed,
+                  },
+                }
+              : null,
+            hasCharacter: !!characterData,
+          };
+        });
+      },
 
       setResponseType: (type) =>
         set({
@@ -494,7 +552,7 @@ const useUserStore = create<UserState>()(
     }),
     {
       name: 'user-storage',
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
         isLoggedIn: state.isLoggedIn,

@@ -47,7 +47,6 @@ const AgeTypeModal: React.FC<AgeTypeModalProps> = ({
         }
         const data = await response.json();
 
-        // Filter out the 'child' type before mapping
         const mappedAgeTypes = data?.age_types
           ?.filter((ageType: string) => ageType !== 'child')
           .map((ageType: string) => {
@@ -66,7 +65,6 @@ const AgeTypeModal: React.FC<AgeTypeModalProps> = ({
       } catch (error) {
         console.error('Error fetching age types:', error);
         setFetchError('Failed to load age types');
-        // Use default age types as fallback
         setAgeTypes(defaultAgeTypes);
       }
     };
@@ -83,7 +81,6 @@ const AgeTypeModal: React.FC<AgeTypeModalProps> = ({
       onClose();
     } catch (error) {
       console.error('Error selecting age type:', error);
-      // Handle error - could show toast or error message
     } finally {
       setIsSubmitting(false);
     }

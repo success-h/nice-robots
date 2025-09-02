@@ -1,6 +1,7 @@
 // src/hooks/useApi.ts
 
 import { BACKEND_URL } from '@/constants';
+import { RequestCookie } from 'next/dist/compiled/@edge-runtime/cookies';
 
 export const useApi = async (
   url: string,
