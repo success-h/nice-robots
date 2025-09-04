@@ -45,6 +45,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { MdLocationPin } from 'react-icons/md';
+import { toast } from 'sonner';
 
 type Props = {
   access_token?: string;
@@ -705,29 +706,61 @@ export default function ChatPage({ access_token }: Props) {
     id: string | undefined,
     character_id: string
   ) => {
-    setDeleteLoading(true);
-    await useApi(
-      `/chats/${id}`,
-      {
-        method: 'DELETE',
-      },
-      access_token
-    );
-    deleteChat(id!);
-    deleteCharacter(character_id!);
-    setDeleteLoading(false);
-    const nextCharacter = characters?.[0];
-    setCharacter(nextCharacter!);
-    setChats(
-      chats?.find(
-        (chat) => chat?.data?.relationships?.character?.id === nextCharacter?.id
-      )!
-    );
-    setCurrentChat(
-      chats?.find(
-        (chat) => chat?.data?.relationships?.character?.id === nextCharacter?.id
-      )!
-    );
+    try {
+      setDeleteLoading(true);
+
+      if (!id) {
+        deleteCharacter(character_id!);
+        deleteCharacter(character_id!);
+        const nextCharacter = characters?.[0];
+        setCharacter(nextCharacter!);
+        setChats(
+          chats?.find(
+            (chat) =>
+              chat?.data?.relationships?.character?.id === nextCharacter?.id
+          )!
+        );
+        setCurrentChat(
+          chats?.find(
+            (chat) =>
+              chat?.data?.relationships?.character?.id === nextCharacter?.id
+          )!
+        );
+        return;
+      }
+      await useApi(
+        `/chats/${id}`,
+        {
+          method: 'DELETE',
+        },
+        access_token
+      );
+      deleteChat(id!);
+      deleteCharacter(character_id!);
+      const nextCharacter = characters?.[0];
+      setCharacter(nextCharacter!);
+      setChats(
+        chats?.find(
+          (chat) =>
+            chat?.data?.relationships?.character?.id === nextCharacter?.id
+        )!
+      );
+      setCurrentChat(
+        chats?.find(
+          (chat) =>
+            chat?.data?.relationships?.character?.id === nextCharacter?.id
+        )!
+      );
+    } catch (error) {
+      setDeleteLoading(false);
+      toast('Unable to delete chat', {
+        description: 'Please try again',
+        action: {
+          label: 'Undo',
+          onClick: () => console.log('Undo'),
+        },
+      });
+    }
   };
 
   useEffect(() => {
