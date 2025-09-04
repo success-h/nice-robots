@@ -898,7 +898,7 @@ export default function ChatPage({ access_token }: Props) {
                               handleRelationshipChange(type);
                             }}
                             disabled={
-                              isCreatingChat && selectedRelationship === type
+                              isCreatingChat || selectedRelationship === type
                             }
                           >
                             {isCreatingChat &&
@@ -1285,10 +1285,13 @@ export default function ChatPage({ access_token }: Props) {
                   <p className="text-sm mt-1 whitespace-pre-wrap">
                     {character.attributes.summary}
                   </p>
-                  <h2 className="text-2xl font-bold mt-3">Location</h2>
-                  <p className="text-sm mt-1 whitespace-pre-wrap">
-                    {character.attributes.residence_intro}
-                  </p>
+                  <div className="mt-3 gap-2 flex items-start">
+                    <MdLocationPin size={20} />
+
+                    <p className="text-sm text-gray-400 whitespace-pre-wrap">
+                      {character.attributes.residence_intro}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

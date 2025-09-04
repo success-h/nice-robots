@@ -209,7 +209,7 @@ export default function HomePageComponent({ access_token }: Props) {
     <>
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-8">
-          Nice Ro<span className="text-pink-500">bots AI</span>
+          Nice<span className="text-pink-500"> Robots</span>
         </h1>
 
         <nav className="space-y-4">
@@ -299,7 +299,7 @@ export default function HomePageComponent({ access_token }: Props) {
                 {/* Mobile Logo */}
                 {isMobile && (
                   <h1 className="text-xl font-bold">
-                    Nice Ro<span className="text-pink-500">bots AI</span>
+                    Nice<span className="text-pink-500">Robots</span>
                   </h1>
                 )}
               </div>
