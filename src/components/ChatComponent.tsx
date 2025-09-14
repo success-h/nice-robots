@@ -23,6 +23,7 @@ import { useApi } from '@/hooks/useApi';
 import Image from 'next/image';
 import Link from 'next/link';
 import ChatList from '@/components/ChatList';
+import CreditsComponent from '@/components/CreditsComponent';
 import {
   Popover,
   PopoverContent,
@@ -949,6 +950,9 @@ export default function ChatPage({ access_token }: Props) {
             </div>
 
             <div className="flex items-center space-x-5">
+              {/* Credits Component */}
+              <CreditsComponent />
+              
               {/* Response Type Toggle */}
               <Popover>
                 <PopoverTrigger asChild>

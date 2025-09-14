@@ -10,6 +10,7 @@ import SignInModal from '../components/SignInModal';
 import Image from 'next/image';
 import Link from 'next/link';
 import AgeTypeModal from '@/components/AgeTypesModal';
+import CreditsComponent from '@/components/CreditsComponent';
 
 const getCharacters = async () => {
   try {
@@ -305,6 +306,9 @@ export default function HomePageComponent({ access_token }: Props) {
               </div>
 
               <div className="flex items-center space-x-4">
+                {/* Credits Component */}
+                <CreditsComponent />
+                
                 {isLoggedIn ? (
                   <div className="flex items-center space-x-3">
                     <Link

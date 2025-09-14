@@ -59,6 +59,17 @@ export type User = {
     };
     id: string;
     type: string;
+    relationships?: {
+      account?: {
+        data?: {
+          id: string;
+          type: string;
+          attributes?: {
+            credit: string;
+          };
+        };
+      };
+    };
   };
 };
 
@@ -111,7 +122,11 @@ export interface UserState {
   user: User | null;
   access_token: string;
   isLoggedIn: boolean;
+  credits: number;
+  accountId: string | null;
   setUser: (userData: User | null) => void;
+  setCredits: (credits: number) => void;
+  setAccountId: (accountId: string | null) => void;
   setCharacter: (characterData: CharacterData | null) => void;
   setCharacters: (characterData: CharacterData[] | null) => void;
   updateChatHistory: (message: Message, chatId: string) => void;
@@ -160,6 +175,8 @@ const useUserStore = create<UserState>()(
       chats: null,
       currentChat: null,
       access_token: '',
+      credits: 0,
+      accountId: null,
 
       setCharacters(characterData) {
         set({
@@ -502,15 +519,42 @@ const useUserStore = create<UserState>()(
           };
         }),
 
-      setUser: (userData) =>
+      setUser: (userData) => {
         set({
           user: userData,
           isLoggedIn: !!userData,
-        }),
+        });
+        
+        // Extract accountId and credits from user data
+        if (userData?.data?.relationships?.account?.data) {
+          const accountData = userData.data.relationships.account.data;
+          set({
+            accountId: accountData.id || null,
+            credits: accountData.attributes?.credit 
+              ? parseFloat(accountData.attributes.credit) 
+              : 0,
+          });
+        } else {
+          set({
+            accountId: null,
+            credits: 0,
+          });
+        }
+      },
 
       setToken: (token: CookieValueTypes) =>
         set({
           access_token: token,
+        }),
+
+      setCredits: (credits: number) =>
+        set({
+          credits: credits,
+        }),
+
+      setAccountId: (accountId: string | null) =>
+        set({
+          accountId: accountId,
         }),
 
       setCharacter: (characterData) => {
@@ -563,6 +607,8 @@ const useUserStore = create<UserState>()(
         currentChat: state.currentChat,
         characters: state.characters,
         access_token: state.access_token,
+        credits: state.credits,
+        accountId: state.accountId,
       }),
     }
   )
