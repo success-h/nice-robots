@@ -126,11 +126,11 @@ export default function CreditsComponent() {
 
   return (
     <div className="flex items-center space-x-2 px-3 py-1 rounded-lg bg-gray-700 border border-gray-600">
-      <Coins className="w-4 h-4 text-yellow-400" />
+      <Coins className="w-4 h-4 text-green-400" />
       <span className="text-sm font-semibold text-white">
         {credits.toLocaleString()}
       </span>
-      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+      {/*<div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>*/}
     </div>
   );
 }
