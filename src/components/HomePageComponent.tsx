@@ -307,7 +307,7 @@ export default function HomePageComponent({ access_token }: Props) {
 
               <div className="flex items-center space-x-4">
                 {/* Credits Component */}
-                <CreditsComponent />
+                {isLoggedIn && <CreditsComponent />}
                 
                 {isLoggedIn ? (
                   <div className="flex items-center space-x-3">

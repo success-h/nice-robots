@@ -78,6 +78,7 @@ export default function ChatPage({ access_token }: Props) {
     setCurrentChat,
     setCharacter,
     chats,
+    isLoggedIn,
     characters,
     deleteChat,
     deleteCharacter,
@@ -951,7 +952,7 @@ export default function ChatPage({ access_token }: Props) {
 
             <div className="flex items-center space-x-5">
               {/* Credits Component */}
-              <CreditsComponent />
+              {isLoggedIn && <CreditsComponent />}
               
               {/* Response Type Toggle */}
               <Popover>
