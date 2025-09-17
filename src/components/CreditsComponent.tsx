@@ -61,7 +61,6 @@ export default function CreditsComponent() {
         channel.on("credit_update", (payload: CreditsData) => {
           console.log("💳 Credit update received:", payload.credit);
           console.log("💳 Current credits in store:", credits);
-          // Update global store when credit update received
           const creditValue = typeof payload.credit === 'string' 
             ? parseFloat(payload.credit) 
             : payload.credit;
