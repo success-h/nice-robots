@@ -1,7 +1,4 @@
-// src/hooks/useApi.ts
-
 import { BACKEND_URL } from '@/constants';
-import { RequestCookie } from 'next/dist/compiled/@edge-runtime/cookies';
 
 export const useApi = async (
   url: string,
@@ -33,6 +30,5 @@ export const useApi = async (
   };
 
   const response = await fetch(withBaseUrl, withBaseOptions);
-  console.log({ response: response });
   return response;
 };

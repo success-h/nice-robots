@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react';
 import useUserStore from '../zustand/useStore';
 import { Coins } from 'lucide-react';
-import { WS_URL} from "@/constants";
+import { WS_URL } from '@/constants';
 
 interface CreditsData {
   credit: number | string;
 }
-
+// import PhoenixModule from 'phoenix';
 
 export default function CreditsComponent() {
   const [isConnected, setIsConnected] = useState<boolean>(false);
@@ -36,9 +36,9 @@ export default function CreditsComponent() {
       try {
         const PhoenixModule = await import('phoenix');
         const Phoenix = PhoenixModule.default || PhoenixModule;
-        
+
         socket = new Phoenix.Socket(WS_URL, {
-          params: { token: access_token }
+          params: { token: access_token },
         });
 
         socket.connect();
@@ -58,24 +58,26 @@ export default function CreditsComponent() {
 
         channel = socket.channel(`account:${accountId}`);
 
-        channel.on("credit_update", (payload: CreditsData) => {
-          console.log("💳 Credit update received:", payload.credit);
-          console.log("💳 Current credits in store:", credits);
+        channel.on('credit_update', (payload: CreditsData) => {
+          console.log('💳 Credit update received:', payload.credit);
+          console.log('💳 Current credits in store:', credits);
           // Update global store when credit update received
-          const creditValue = typeof payload.credit === 'string' 
-            ? parseFloat(payload.credit) 
-            : payload.credit;
-          console.log("💳 Setting credits to:", creditValue);
+          const creditValue =
+            typeof payload.credit === 'string'
+              ? parseFloat(payload.credit)
+              : payload.credit;
+          console.log('💳 Setting credits to:', creditValue);
           setCredits(creditValue);
-          console.log("💳 Credits updated in store");
+          console.log('💳 Credits updated in store');
         });
 
-        channel.join()
-          .receive("ok", (resp: any) => {
+        channel
+          .join()
+          .receive('ok', (resp: any) => {
             setIsConnected(true);
             setIsLoading(false);
           })
-          .receive("error", (resp: any) => {
+          .receive('error', (resp: any) => {
             setIsConnected(false);
             setIsLoading(false);
           });
@@ -98,7 +100,7 @@ export default function CreditsComponent() {
     const cleanup = initPhoenix();
 
     return () => {
-      cleanup.then(cleanupFn => {
+      cleanup.then((cleanupFn) => {
         if (cleanupFn) {
           cleanupFn();
         }

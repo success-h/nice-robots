@@ -75,6 +75,7 @@ export default function ChatPage({ access_token }: Props) {
     updateChatHistory,
     response_type,
     setChats,
+    setResponseType,
     setCurrentChat,
     setCharacter,
     chats,
@@ -143,130 +144,7 @@ export default function ChatPage({ access_token }: Props) {
 
       const contentType = response.headers.get('content-type');
 
-      if (contentType?.includes('text/event-stream')) {
-        if (!response.body) {
-          throw new Error('No response body available for streaming');
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-
-        let eventType = null;
-        let buffer = '';
-        let messageId = '';
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-
-            if (done) break;
-
-            const chunk = decoder.decode(value, { stream: true });
-            buffer += chunk;
-
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-
-            for (const line of lines) {
-              const trimmedLine = line.trim();
-              if (!trimmedLine) continue;
-
-              if (trimmedLine.startsWith('event: ')) {
-                eventType = trimmedLine.substring(7);
-              } else if (trimmedLine.startsWith('data: ')) {
-                const jsonStr = trimmedLine.substring(6).trim();
-                if (jsonStr && jsonStr !== '[DONE]' && jsonStr !== 'null') {
-                  try {
-                    const parsed = JSON.parse(jsonStr);
-
-                    if (eventType === 'error' || parsed.error) {
-                      const moderationDetails = handleModerationFailure(
-                        message,
-                        currentChat?.data?.id!,
-                        parsed.details || []
-                      );
-
-                      const moderationResponse = await useApi(
-                        `/moderation-resolutions/${currentChat?.data?.id}`,
-                        {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ details: moderationDetails }),
-                          signal: controller.signal,
-                        },
-                        access_token
-                      );
-
-                      if (moderationResponse.ok) {
-                        const moderationParsedData =
-                          await moderationResponse.json();
-                        if (
-                          moderationParsedData?.data?.message_id &&
-                          response_type === 'voice'
-                        ) {
-                          await fetchAudioStream(
-                            moderationParsedData?.data?.message_id
-                          );
-                        }
-                        assistantMessage.content =
-                          moderationParsedData.data.text;
-                        updateChatHistory(
-                          assistantMessage,
-                          currentChat?.data.id!
-                        );
-                      }
-                      return;
-                    } else {
-                      // Regular streaming content
-                      let content = '';
-                      console.log({ parsed: parsed.choices?.[0] });
-                      if (parsed.choices?.[0]?.delta?.content) {
-                        content = parsed.choices[0].delta.content;
-                      } else if (parsed.content) {
-                        content = parsed.content;
-                      } else if (parsed.text) {
-                        content = parsed.text;
-                      }
-
-                      if (parsed.message_id) {
-                        messageId = parsed.message_id;
-                      }
-
-                      const isSingleEmoji = /^\p{Emoji}$/u.test(content);
-                      if (isSingleEmoji) {
-                        assistantMessage.isBouncyEmoji = true;
-                      }
-                      if (content) {
-                        assistantMessage.content += content;
-                        if (response_type === 'text') {
-                          updateChatHistory(
-                            assistantMessage,
-                            currentChat?.data.id!
-                          );
-                        }
-                      }
-                    }
-                  } catch (parseError) {
-                    // console.log('Error parsing SSE chunk:', parseError);
-                  }
-                }
-              }
-            }
-          }
-
-          // After streaming is complete
-          if (response_type === 'voice') {
-            updateChatHistory(assistantMessage, currentChat?.data.id!);
-            if (messageId) {
-              await fetchAudioStream(messageId);
-            }
-          } else if (response_type === 'text' && messageId) {
-            await fetchAudioStream(messageId);
-          }
-        } finally {
-          reader.releaseLock();
-        }
-      } else if (contentType?.includes('application/json')) {
+      if (contentType?.includes('application/json')) {
         // Handle regular JSON response
         if (!response.ok) {
           const errorData = await response.json();
@@ -323,7 +201,7 @@ export default function ChatPage({ access_token }: Props) {
         }
         updateChatHistory(assistantMessage, currentChat?.data.id!);
 
-        if (parsedData.data.message_id && response_type === 'voice') {
+        if (response_type === 'voice') {
           await fetchAudioStream(parsedData.data.message_id);
         }
       }
@@ -953,20 +831,22 @@ export default function ChatPage({ access_token }: Props) {
             <div className="flex items-center space-x-5">
               {/* Credits Component */}
               {isLoggedIn && <CreditsComponent />}
-              
+
               {/* Response Type Toggle */}
               <Popover>
                 <PopoverTrigger asChild>
                   <h1 className="capitalize border rounded-lg flex items-center gap-1 px-3 py-1 font-semibold text-gray-100 cursor-pointer">
-                    {currentChat?.data?.attributes?.return_type}{' '}
-                    <Edit2 size={15} />
+                    {response_type} <Edit2 size={15} />
                   </h1>
                 </PopoverTrigger>
                 <PopoverContent className="border bg-gray-700 border-gray-400">
                   <div className="space-y-4">
                     <RadioGroup
-                      onValueChange={toggleResponseType}
-                      value={currentChat?.data?.attributes?.return_type}
+                      onValueChange={(res) => {
+                        setResponseType(res);
+                        return res;
+                      }}
+                      value={response_type}
                     >
                       {[
                         {
