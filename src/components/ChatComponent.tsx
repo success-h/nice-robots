@@ -679,6 +679,8 @@ export default function ChatPage({ access_token }: Props) {
     (video) => video.attributes.type === 'intro'
   );
 
+  const showVideoIntro = character?.attributes?.video_played;
+
   return (
     <div className="flex h-screen bg-gray-900">
       {isMobile && sidebarOpen && (
@@ -893,8 +895,8 @@ export default function ChatPage({ access_token }: Props) {
           <div className="flex flex-col items-center justify-center h-full text-center p-4">
             {introVideo && (
               <video
-                src={introVideo.attributes.url}
-                autoPlay={!character?.attributes?.video_played}
+                src={introVideo?.attributes?.url}
+                autoPlay={!showVideoIntro}
                 controls
                 className="w-full max-w-md rounded-xl shadow-lg"
                 poster={character?.attributes?.avatar}
