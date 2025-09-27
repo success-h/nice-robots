@@ -122,23 +122,33 @@ export default function ChatPage({ access_token }: Props) {
     setInputMessage('');
     setIsTyping(true);
 
-    const assistantMessage: Message = {
-      role: 'assistant',
-      content: '',
-      displayContent: [],
-    };
-
     try {
       const controller = new AbortController();
       abortController.current = controller;
+
+      const sanitizeChatHistory = (history: Message[]) => {
+        return history.map((msg) => {
+          const sanitizedContent = msg.content || '';
+          return {
+            role: msg.role,
+            content: sanitizedContent,
+          };
+        });
+      };
+
+      const sanitizedHistory = sanitizeChatHistory(
+        currentChat?.chatHistory || []
+      );
 
       const response = await useApi(
         `/chat-completions/${chatId}`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({
-            messages: [...(currentChat?.chatHistory || []), message],
+            messages: [...sanitizedHistory, message],
           }),
           signal: controller.signal,
         },
@@ -156,18 +166,20 @@ export default function ChatPage({ access_token }: Props) {
               currentChat?.data?.id!,
               errorData.details
             );
-
             const moderationResponse = await useApi(
               `/moderation-resolutions/${currentChat?.data?.id}`,
               {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ details: moderationDetails }),
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  details: moderationDetails,
+                }),
                 signal: controller.signal,
               },
               access_token
             );
-
             if (moderationResponse.ok) {
               const moderationParsedData = await moderationResponse.json();
               if (
@@ -176,13 +188,24 @@ export default function ChatPage({ access_token }: Props) {
               ) {
                 await fetchAudioStream(moderationParsedData.data.message_id);
               }
-              assistantMessage.content = moderationParsedData.data.text;
+              const assistantMessage: Message = {
+                role: 'assistant',
+                content: moderationParsedData.data.text,
+              };
               updateChatHistory(assistantMessage, currentChat?.data.id!);
             }
             return;
           }
         }
+
         const parsedData = await response.json();
+
+        const assistantMessage: Message = {
+          role: 'assistant',
+          content: parsedData.data.text,
+          displayContent: [],
+        };
+        console.log({ parsedData });
 
         let emojiString = '';
         if (parsedData.data.emojis && parsedData.data.emojis.length > 0) {
@@ -193,65 +216,65 @@ export default function ChatPage({ access_token }: Props) {
         ) {
           emojiString = parsedData.data.reaction.join(' ') + ' ';
         }
-
         if (parsedData.data.text) {
-          assistantMessage?.displayContent?.push({
+          assistantMessage.displayContent!.push({
             type: 'text',
             value: emojiString + parsedData.data.text,
           });
         }
-        assistantMessage.content = emojiString + parsedData.data.text;
 
         if (parsedData.data.examples && parsedData.data.examples.length > 0) {
-          const examplesString = parsedData.data.examples.join('');
+          const examplesString: string = parsedData.data.examples.join('');
           if (examplesString.includes('<pre><code>')) {
             const codeMatch = examplesString.match(
               /<pre><code>([\s\S]*?)<\/code><\/pre>/
             );
             const textMatch = examplesString.match(/<\/code><\/pre>(.*)/);
 
-            assistantMessage?.displayContent?.push({
+            assistantMessage.displayContent!.push({
               type: 'html',
               value: `<br/><br/><strong>Examples:</strong> <br/>`,
             });
             if (codeMatch && codeMatch[1]) {
-              assistantMessage?.displayContent?.push({
+              assistantMessage.displayContent!.push({
                 type: 'code',
                 value: codeMatch[1].trim(),
               });
             }
             if (textMatch && textMatch[1]) {
-              assistantMessage?.displayContent?.push({
+              assistantMessage.displayContent!.push({
                 type: 'html',
                 value: `<p>${textMatch[1].trim()}</p>`,
               });
             }
           } else {
-            assistantMessage?.displayContent?.push({
+            assistantMessage.displayContent!.push({
               type: 'html',
               value: `<br/><br/><strong>Examples:</strong> <br/> ${examplesString}`,
             });
           }
         }
+
         if (parsedData.data.links && parsedData.data.links.length > 0) {
-          const formattedLinks = parsedData.data.links
+          const formattedLinks: string = parsedData.data.links
             .map(
               (link: string) =>
                 `<li><a class="text-blue-400" href="${link}" target="_blank" rel="noopener noreferrer">${link}</a></li>`
             )
             .join('');
-          assistantMessage?.displayContent?.push({
+          assistantMessage.displayContent!.push({
             type: 'html',
             value: `<br/><br/><strong class="text-emerald-500">Links:</strong><ul class="list-disc list-inside">${formattedLinks}</ul>`,
           });
         }
 
-        const isSingleEmoji = /^\p{Emoji}$/u.test(
+        const isSingleEmoji: boolean = /^\p{Emoji}$/u.test(
           assistantMessage.content.trim()
         );
         if (isSingleEmoji) {
           assistantMessage.isBouncyEmoji = true;
         }
+
         updateChatHistory(assistantMessage, currentChat?.data.id!);
 
         if (response_type === 'voice') {
@@ -259,7 +282,7 @@ export default function ChatPage({ access_token }: Props) {
         }
       }
     } catch (error) {
-      //@ts-expect-error AbortError
+      // @ts-expect-error AbortError
       if (error.name !== 'AbortError') {
         console.error('Error sending message:', error);
       }
@@ -350,9 +373,9 @@ export default function ChatPage({ access_token }: Props) {
           role: 'assistant',
           content: data?.data?.text,
         };
-        updateChatHistory(userMessage, chatData.data.id);
-        updateChatHistory(assistantMessage, chatData.data.id);
-        fetchAudioStream(data.data.message_id);
+        updateChatHistory(userMessage, chatData?.data?.id);
+        updateChatHistory(assistantMessage, chatData?.data?.id);
+        fetchAudioStream(data?.data?.message_id);
       }
     } catch (error) {
       console.error('Failed to create new chat:', error);
@@ -372,7 +395,6 @@ export default function ChatPage({ access_token }: Props) {
     setIsMuted(!isMuted);
   };
 
-  // Stop response generation
   const stopResponse = () => {
     if (abortController.current) {
       abortController.current.abort();

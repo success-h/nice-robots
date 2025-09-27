@@ -108,7 +108,7 @@ export type Message = {
   messageId?: string;
   moderationFailed?: boolean;
   isResolutionResponse?: boolean;
-  messageType?: 'text' | 'video'; // Add this line
+  messageType?: 'text' | 'video';
   videoUrl?: string;
   isBouncyEmoji?: boolean;
   displayContent?: Array<{
