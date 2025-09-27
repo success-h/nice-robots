@@ -774,7 +774,7 @@ export default function ChatPage({ access_token }: Props) {
           >
             <Image
               src={user?.data?.attributes?.avatar || '/default-avatar.png'}
-              alt={character?.attributes?.name!}
+              alt={character?.attributes?.name || 'profile'}
               width={32}
               height={32}
               className="rounded-full"
