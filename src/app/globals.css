@@ -193,3 +193,11 @@
     @apply bg-background text-foreground;
   }
 }
+
+pre {
+  @apply bg-gray-700 p-4 rounded-lg overflow-x-auto text-sm mb-3;
+}
+
+code {
+  @apply font-mono text-purple-300;
+}

@@ -47,6 +47,8 @@ import {
 } from '@/components/ui/tooltip';
 import { MdLocationPin } from 'react-icons/md';
 import { toast } from 'sonner';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 
 type Props = {
   access_token?: string;
@@ -123,6 +125,7 @@ export default function ChatPage({ access_token }: Props) {
     const assistantMessage: Message = {
       role: 'assistant',
       content: '',
+      displayContent: [],
     };
 
     try {
@@ -145,7 +148,6 @@ export default function ChatPage({ access_token }: Props) {
       const contentType = response.headers.get('content-type');
 
       if (contentType?.includes('application/json')) {
-        // Handle regular JSON response
         if (!response.ok) {
           const errorData = await response.json();
           if (errorData.reason === 'filtering' && errorData.details) {
@@ -191,7 +193,58 @@ export default function ChatPage({ access_token }: Props) {
         ) {
           emojiString = parsedData.data.reaction.join(' ') + ' ';
         }
+
+        if (parsedData.data.text) {
+          assistantMessage?.displayContent?.push({
+            type: 'text',
+            value: emojiString + parsedData.data.text,
+          });
+        }
         assistantMessage.content = emojiString + parsedData.data.text;
+
+        if (parsedData.data.examples && parsedData.data.examples.length > 0) {
+          const examplesString = parsedData.data.examples.join('');
+          if (examplesString.includes('<pre><code>')) {
+            const codeMatch = examplesString.match(
+              /<pre><code>([\s\S]*?)<\/code><\/pre>/
+            );
+            const textMatch = examplesString.match(/<\/code><\/pre>(.*)/);
+
+            assistantMessage?.displayContent?.push({
+              type: 'html',
+              value: `<br/><br/><strong>Examples:</strong> <br/>`,
+            });
+            if (codeMatch && codeMatch[1]) {
+              assistantMessage?.displayContent?.push({
+                type: 'code',
+                value: codeMatch[1].trim(),
+              });
+            }
+            if (textMatch && textMatch[1]) {
+              assistantMessage?.displayContent?.push({
+                type: 'html',
+                value: `<p>${textMatch[1].trim()}</p>`,
+              });
+            }
+          } else {
+            assistantMessage?.displayContent?.push({
+              type: 'html',
+              value: `<br/><br/><strong>Examples:</strong> <br/> ${examplesString}`,
+            });
+          }
+        }
+        if (parsedData.data.links && parsedData.data.links.length > 0) {
+          const formattedLinks = parsedData.data.links
+            .map(
+              (link: string) =>
+                `<li><a class="text-blue-400" href="${link}" target="_blank" rel="noopener noreferrer">${link}</a></li>`
+            )
+            .join('');
+          assistantMessage?.displayContent?.push({
+            type: 'html',
+            value: `<br/><br/><strong class="text-emerald-500">Links:</strong><ul class="list-disc list-inside">${formattedLinks}</ul>`,
+          });
+        }
 
         const isSingleEmoji = /^\p{Emoji}$/u.test(
           assistantMessage.content.trim()
@@ -286,7 +339,6 @@ export default function ChatPage({ access_token }: Props) {
         access_token
       );
 
-      // const data = await parseApiResponse(response);
       const data = await response.json();
       if (data) {
         const chatData = await loadChatHistory();
@@ -301,8 +353,6 @@ export default function ChatPage({ access_token }: Props) {
         updateChatHistory(userMessage, chatData.data.id);
         updateChatHistory(assistantMessage, chatData.data.id);
         fetchAudioStream(data.data.message_id);
-
-        // sendMessage(userMessage, data?.data?.id);
       }
     } catch (error) {
       console.error('Failed to create new chat:', error);
@@ -530,25 +580,6 @@ export default function ChatPage({ access_token }: Props) {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  // Toggle response type
-  const toggleResponseType = async () => {
-    try {
-      await useApi(
-        `/chats/${currentChat?.data.id}/toggle-return-type`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-        access_token
-      );
-      loadChatHistory();
-    } catch (error) {
-      console.error('Failed toggling return type:', error);
-    }
-  };
-
   const handleUserMessage = () => {
     if (!inputMessage.trim() || isTyping || !currentChat?.data.id) return;
 
@@ -681,6 +712,8 @@ export default function ChatPage({ access_token }: Props) {
 
   const showVideoIntro = character?.attributes?.video_played;
 
+  const isCodeMessage = (content: string) => content.includes('<pre><code>');
+
   return (
     <div className="flex h-screen bg-gray-900">
       {isMobile && sidebarOpen && (
@@ -706,13 +739,11 @@ export default function ChatPage({ access_token }: Props) {
         ${isMobile && !sidebarOpen ? 'translate-x-full' : 'translate-x-0'}
       `}
       >
-        {/* Sidebar Header */}
         <div className="p-3 border-b border-gray-700 py-4">
           <Link
             href={'/'}
             onClick={() => {
               setCurrentChat(null);
-              //   setCharacter(null);
               updateCharacterVideoPlayed(character?.id!);
             }}
             className="flex items-center w-full p-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-colors"
@@ -722,7 +753,6 @@ export default function ChatPage({ access_token }: Props) {
           </Link>
         </div>
 
-        {/* Chat List */}
         <ChatList
           characters={characters}
           chats={chats}
@@ -986,13 +1016,12 @@ export default function ChatPage({ access_token }: Props) {
                               src={message.videoUrl}
                               controls
                               className="w-80 h-auto rounded-lg"
-                              poster={character?.attributes?.avatar} // Use character avatar as poster
+                              poster={character?.attributes?.avatar}
                             >
                               Your browser does not support the video tag.
                             </video>
                           </div>
                         ) : (
-                          // Regular text message
                           <div
                             className={`inline-block p-3 rounded-lg ${
                               message.role === 'user'
@@ -1000,15 +1029,70 @@ export default function ChatPage({ access_token }: Props) {
                                 : 'bg-gray-800 text-gray-100'
                             }`}
                           >
-                            <div
-                              className={`message-bubble whitespace-pre-wrap ${
-                                message.isBouncyEmoji
-                                  ? 'bounce-effect text-4xl'
-                                  : 'text-sm'
-                              }`}
-                            >
-                              {message.content}
-                            </div>
+                            {message.displayContent &&
+                            message.displayContent.length > 0 ? (
+                              message.displayContent.map(
+                                (item, contentIndex) => {
+                                  if (item.type === 'code') {
+                                    return (
+                                      <SyntaxHighlighter
+                                        key={contentIndex}
+                                        language="js"
+                                        style={oneDark}
+                                        customStyle={{
+                                          borderRadius: '0.5rem',
+                                          marginBottom: '0.75rem',
+                                          marginTop: '0.75rem',
+                                        }}
+                                      >
+                                        {item.value}
+                                      </SyntaxHighlighter>
+                                    );
+                                  } else if (item.type === 'html') {
+                                    return (
+                                      <div
+                                        key={contentIndex}
+                                        className={`message-bubble whitespace-pre-wrap ${
+                                          message.isBouncyEmoji &&
+                                          contentIndex === 0
+                                            ? 'bounce-effect text-4xl'
+                                            : 'text-sm'
+                                        }`}
+                                        dangerouslySetInnerHTML={{
+                                          __html: item.value,
+                                        }}
+                                      />
+                                    );
+                                  } else if (item.type === 'text') {
+                                    return (
+                                      <div
+                                        key={contentIndex}
+                                        className={`message-bubble whitespace-pre-wrap ${
+                                          message.isBouncyEmoji &&
+                                          contentIndex === 0
+                                            ? 'bounce-effect text-4xl'
+                                            : 'text-sm'
+                                        }`}
+                                      >
+                                        {item.value}
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                }
+                              )
+                            ) : (
+                              <div
+                                className={`message-bubble whitespace-pre-wrap ${
+                                  message.isBouncyEmoji
+                                    ? 'bounce-effect text-4xl'
+                                    : 'text-sm'
+                                }`}
+                                dangerouslySetInnerHTML={{
+                                  __html: message.content,
+                                }}
+                              />
+                            )}
                           </div>
                         )}
                         {message.moderationFailed && (
@@ -1022,7 +1106,6 @@ export default function ChatPage({ access_token }: Props) {
                 );
               })}
 
-              {/* Typing Indicator */}
               {isTyping && (
                 <div className="flex items-start space-x-3">
                   <Image

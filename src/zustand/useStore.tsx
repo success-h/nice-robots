@@ -111,6 +111,10 @@ export type Message = {
   messageType?: 'text' | 'video'; // Add this line
   videoUrl?: string;
   isBouncyEmoji?: boolean;
+  displayContent?: Array<{
+    type: 'text' | 'links' | 'code' | 'html';
+    value: string;
+  }>;
 };
 
 export type ModerationDetails = {
@@ -524,14 +528,14 @@ const useUserStore = create<UserState>()(
           user: userData,
           isLoggedIn: !!userData,
         });
-        
+
         // Extract accountId and credits from user data
         if (userData?.data?.relationships?.account?.data) {
           const accountData = userData.data.relationships.account.data;
           set({
             accountId: accountData.id || null,
-            credits: accountData.attributes?.credit 
-              ? parseFloat(accountData.attributes.credit) 
+            credits: accountData.attributes?.credit
+              ? parseFloat(accountData.attributes.credit)
               : 0,
           });
         } else {
