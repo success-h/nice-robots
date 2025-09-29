@@ -133,7 +133,11 @@ export interface UserState {
   setAccountId: (accountId: string | null) => void;
   setCharacter: (characterData: CharacterData | null) => void;
   setCharacters: (characterData: CharacterData[] | null) => void;
-  updateChatHistory: (message: Message, chatId: string) => void;
+  updateChatHistory: (
+    message: Message,
+    chatId: string,
+    isBouncy?: boolean
+  ) => void;
   setChats: (chatsData: ChatData) => void;
   setCurrentChat: (chatData: ChatData | null) => void;
   setResponseType: (type: string) => void;
@@ -266,7 +270,7 @@ const useUserStore = create<UserState>()(
         });
       },
 
-      updateChatHistory(message, chatId) {
+      updateChatHistory(message, chatId, isBouncy) {
         set((state) => {
           if (!state.currentChat || state?.currentChat?.data?.id !== chatId) {
             return state;
@@ -278,18 +282,20 @@ const useUserStore = create<UserState>()(
               const history = [...(state.currentChat.chatHistory || [])];
               const last = history[history.length - 1];
 
-              // Always push video messages, never replace them
-              if (message.messageType === 'video') {
-                history.push(message);
-              }
-              // For other messages, only replace if same role and NOT following a video
-              else if (
-                last?.role === message.role &&
+              const newMessage: Message = {
+                ...message,
+                isBouncyEmoji: isBouncy,
+              };
+
+              if (newMessage.messageType === 'video') {
+                history.push(newMessage);
+              } else if (
+                last?.role === newMessage.role &&
                 last?.messageType !== 'video'
               ) {
-                history[history.length - 1] = message;
+                history[history.length - 1] = newMessage;
               } else {
-                history.push(message);
+                history.push(newMessage);
               }
 
               return trimMessagesToLimit(history, 70);

@@ -201,3 +201,22 @@ pre {
 code {
   @apply font-mono text-purple-300;
 }
+
+.message-bubble {
+  word-break: break-word;
+  max-width: 100%;
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.25);
+  }
+}
+
+.bounce-effect {
+  animation: bounce 0.5s ease-in-out;
+}

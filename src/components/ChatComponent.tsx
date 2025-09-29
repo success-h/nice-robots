@@ -126,19 +126,10 @@ export default function ChatPage({ access_token }: Props) {
       const controller = new AbortController();
       abortController.current = controller;
 
-      const sanitizeChatHistory = (history: Message[]) => {
-        return history.map((msg) => {
-          const sanitizedContent = msg.content || '';
-          return {
-            role: msg.role,
-            content: sanitizedContent,
-          };
-        });
-      };
-
-      const sanitizedHistory = sanitizeChatHistory(
-        currentChat?.chatHistory || []
-      );
+      const sanitizedHistory = (currentChat?.chatHistory || []).map((msg) => ({
+        role: msg.role,
+        content: msg.content || '',
+      }));
 
       const response = await useApi(
         `/chat-completions/${chatId}`,
@@ -200,62 +191,74 @@ export default function ChatPage({ access_token }: Props) {
 
         const parsedData = await response.json();
 
-        const assistantMessage: Message = {
-          role: 'assistant',
-          content: parsedData.data.text,
-          displayContent: [],
-        };
-        console.log({ parsedData });
+        const examplesBlock: string = parsedData.data.examples?.length
+          ? `\n\n**Examples:**\n${parsedData.data.examples.join('\n\n')}`
+          : '';
+        const linksBlock: string = parsedData.data.links?.length
+          ? `\n\n**Links:**\n${parsedData.data.links.join('\n')}`
+          : '';
 
-        let emojiString = '';
-        if (parsedData.data.emojis && parsedData.data.emojis.length > 0) {
+        let emojiString: string = '';
+        if (parsedData.data.emojis?.length > 0) {
           emojiString = parsedData.data.emojis.join(' ') + ' ';
-        } else if (
-          parsedData.data.reaction &&
-          parsedData.data.reaction.length > 0
-        ) {
+        } else if (parsedData.data.reaction?.length > 0) {
           emojiString = parsedData.data.reaction.join(' ') + ' ';
         }
-        if (parsedData.data.text) {
+        const fullContent = [
+          parsedData.data.text || '',
+          examplesBlock,
+          linksBlock,
+        ]
+          .filter(Boolean)
+          .join('');
+
+        const assistantMessage: Message = {
+          role: 'assistant',
+          content: fullContent,
+          displayContent: [],
+        };
+
+        if (parsedData.data.text || emojiString) {
           assistantMessage.displayContent!.push({
             type: 'text',
-            value: emojiString + parsedData.data.text,
+            value: parsedData.data.text
+              ? emojiString + parsedData.data.text
+              : emojiString.trim(),
           });
         }
 
-        if (parsedData.data.examples && parsedData.data.examples.length > 0) {
-          const examplesString: string = parsedData.data.examples.join('');
-          if (examplesString.includes('<pre><code>')) {
-            const codeMatch = examplesString.match(
+        if (parsedData.data.examples?.length > 0) {
+          assistantMessage.displayContent!.push({
+            type: 'html',
+            value: `<br/><br/><strong>Examples:</strong>`,
+          });
+          parsedData.data.examples.forEach((example: string) => {
+            const codeMatch = example.match(
               /<pre><code>([\s\S]*?)<\/code><\/pre>/
             );
-            const textMatch = examplesString.match(/<\/code><\/pre>(.*)/);
+            const textMatch = example.match(/<\/code><\/pre>(.*)/);
 
-            assistantMessage.displayContent!.push({
-              type: 'html',
-              value: `<br/><br/><strong>Examples:</strong> <br/>`,
-            });
             if (codeMatch && codeMatch[1]) {
               assistantMessage.displayContent!.push({
                 type: 'code',
                 value: codeMatch[1].trim(),
               });
-            }
-            if (textMatch && textMatch[1]) {
+              if (textMatch && textMatch[1]) {
+                assistantMessage.displayContent!.push({
+                  type: 'html',
+                  value: `<p>${textMatch[1].trim()}</p>`,
+                });
+              }
+            } else {
               assistantMessage.displayContent!.push({
                 type: 'html',
-                value: `<p>${textMatch[1].trim()}</p>`,
+                value: example,
               });
             }
-          } else {
-            assistantMessage.displayContent!.push({
-              type: 'html',
-              value: `<br/><br/><strong>Examples:</strong> <br/> ${examplesString}`,
-            });
-          }
+          });
         }
 
-        if (parsedData.data.links && parsedData.data.links.length > 0) {
+        if (parsedData.data.links?.length > 0) {
           const formattedLinks: string = parsedData.data.links
             .map(
               (link: string) =>
@@ -275,9 +278,14 @@ export default function ChatPage({ access_token }: Props) {
           assistantMessage.isBouncyEmoji = true;
         }
 
-        updateChatHistory(assistantMessage, currentChat?.data.id!);
+        const isBouncy: boolean =
+          parsedData.data.text === '' &&
+          (parsedData.data.emojis?.length > 0 ||
+            parsedData.data.reaction?.length > 0);
 
-        if (response_type === 'voice') {
+        updateChatHistory(assistantMessage, currentChat?.data.id!, isBouncy);
+
+        if (response_type === 'voice' && parsedData.data.text) {
           await fetchAudioStream(parsedData.data.message_id);
         }
       }
@@ -290,6 +298,7 @@ export default function ChatPage({ access_token }: Props) {
       setIsTyping(false);
     }
   };
+
   const fetchAudioStream = async (messageId: string) => {
     try {
       setIsSpeaking(true);
@@ -734,7 +743,15 @@ export default function ChatPage({ access_token }: Props) {
 
   const showVideoIntro = character?.attributes?.video_played;
 
-  const isCodeMessage = (content: string) => content.includes('<pre><code>');
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      updateCharacterVideoPlayed(character?.id!);
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   return (
     <div className="flex h-screen bg-gray-900">
@@ -806,9 +823,7 @@ export default function ChatPage({ access_token }: Props) {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col bg-gray-800">
-        {/* Header */}
         <div className="border-b border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -883,10 +898,7 @@ export default function ChatPage({ access_token }: Props) {
             </div>
 
             <div className="flex items-center space-x-5">
-              {/* Credits Component */}
               {isLoggedIn && <CreditsComponent />}
-
-              {/* Response Type Toggle */}
               <Popover>
                 <PopoverTrigger asChild>
                   <h1 className="capitalize border rounded-lg flex items-center gap-1 px-3 py-1 font-semibold text-gray-100 cursor-pointer">
@@ -943,7 +955,7 @@ export default function ChatPage({ access_token }: Props) {
           </div>
         </div>
 
-        {!isLoading && !currentChat && (
+        {!isLoading && !currentChat && character && (
           <div className="flex flex-col items-center justify-center h-full text-center p-4">
             {introVideo && (
               <video
@@ -1006,7 +1018,10 @@ export default function ChatPage({ access_token }: Props) {
                       <div className="flex-shrink-0">
                         {message.role === 'assistant' ? (
                           <Image
-                            src={character?.attributes?.avatar!}
+                            src={
+                              character?.attributes?.avatar ||
+                              '/default-avatar.png'
+                            }
                             alt={character?.attributes?.name!}
                             width={32}
                             height={32}
@@ -1059,7 +1074,7 @@ export default function ChatPage({ access_token }: Props) {
                                     return (
                                       <SyntaxHighlighter
                                         key={contentIndex}
-                                        language="js"
+                                        language="python"
                                         style={oneDark}
                                         customStyle={{
                                           borderRadius: '0.5rem',
@@ -1086,15 +1101,13 @@ export default function ChatPage({ access_token }: Props) {
                                       />
                                     );
                                   } else if (item.type === 'text') {
+                                    const textClasses = message.isBouncyEmoji
+                                      ? 'bounce-effect text-4xl'
+                                      : 'text-sm whitespace-pre-wrap';
                                     return (
                                       <div
                                         key={contentIndex}
-                                        className={`message-bubble whitespace-pre-wrap ${
-                                          message.isBouncyEmoji &&
-                                          contentIndex === 0
-                                            ? 'bounce-effect text-4xl'
-                                            : 'text-sm'
-                                        }`}
+                                        className={`message-bubble ${textClasses}`}
                                       >
                                         {item.value}
                                       </div>
