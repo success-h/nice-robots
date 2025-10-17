@@ -136,6 +136,32 @@ export type ModerationDetails = {
   severity: string;
 }[];
 
+export type PlanResource = {
+  id: string;
+  type: string;
+  attributes: {
+    name: string;
+    description?: string;
+    duration?: number;
+    duration_unit?: string;
+    slug?: string;
+    price?: string | number;
+    credit_included?: string | number;
+  };
+};
+
+export type CreditPackResource = {
+  id: string;
+  type: string;
+  attributes: {
+    name: string;
+    description?: string;
+    quantity?: number;
+    slug?: string;
+    price?: string | number;
+  };
+};
+
 export interface UserState {
   user: User | null;
   access_token: string;
@@ -144,6 +170,8 @@ export interface UserState {
   accountId: string | null;
   plan: { id: string; type: string; attributes?: Record<string, unknown> } | null;
   userPlan: { id: string; type: string; attributes?: Record<string, unknown> } | null;
+  paidPlans: PlanResource[] | null;
+  creditPacks: CreditPackResource[] | null;
   setUser: (userData: User | null) => void;
   setCredits: (credits: number) => void;
   setAccountId: (accountId: string | null) => void;
@@ -174,6 +202,8 @@ export interface UserState {
   addCharacter: (characterData: CharacterData) => void;
   deleteCharacter: (characterId: string) => void;
   updateCharacterVideoPlayed: (characterId: string) => void; // Added this method
+  setPaidPlans: (plans: PlanResource[] | null) => void;
+  setCreditPacks: (packs: CreditPackResource[] | null) => void;
 }
 
 const trimMessagesToLimit = (
@@ -205,6 +235,8 @@ const useUserStore = create<UserState>()(
       accountId: null,
       plan: null,
       userPlan: null,
+      paidPlans: null,
+      creditPacks: null,
 
       setCharacters(characterData) {
         set({
@@ -642,6 +674,16 @@ const useUserStore = create<UserState>()(
           user: null,
           isLoggedIn: false,
         }),
+
+      setPaidPlans: (plans) =>
+        set({
+          paidPlans: Array.isArray(plans) ? plans : null,
+        }),
+
+      setCreditPacks: (packs) =>
+        set({
+          creditPacks: Array.isArray(packs) ? packs : null,
+        }),
     }),
     {
       name: 'user-storage',
@@ -660,6 +702,8 @@ const useUserStore = create<UserState>()(
         accountId: state.accountId,
         plan: state.plan,
         userPlan: state.userPlan,
+        paidPlans: state.paidPlans,
+        creditPacks: state.creditPacks,
       }),
     }
   )
