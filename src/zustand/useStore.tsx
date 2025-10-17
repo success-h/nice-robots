@@ -69,6 +69,20 @@ export type User = {
           };
         };
       };
+      plan?: {
+        data?: {
+          id: string;
+          type: string;
+          attributes?: Record<string, unknown>;
+        };
+      };
+      user_plan?: {
+        data?: {
+          id: string;
+          type: string;
+          attributes?: Record<string, unknown>;
+        };
+      };
     };
   };
 };
@@ -128,6 +142,8 @@ export interface UserState {
   isLoggedIn: boolean;
   credits: number;
   accountId: string | null;
+  plan: { id: string; type: string; attributes?: Record<string, unknown> } | null;
+  userPlan: { id: string; type: string; attributes?: Record<string, unknown> } | null;
   setUser: (userData: User | null) => void;
   setCredits: (credits: number) => void;
   setAccountId: (accountId: string | null) => void;
@@ -170,6 +186,8 @@ const trimMessagesToLimit = (
   return messages.slice(messages.length - limit);
 };
 
+// No relation normalization helper needed; we directly read wrapped `data` objects
+
 const useUserStore = create<UserState>()(
   persist(
     (set, get) => ({
@@ -185,6 +203,8 @@ const useUserStore = create<UserState>()(
       access_token: '',
       credits: 0,
       accountId: null,
+      plan: null,
+      userPlan: null,
 
       setCharacters(characterData) {
         set({
@@ -530,6 +550,7 @@ const useUserStore = create<UserState>()(
         }),
 
       setUser: (userData) => {
+        console.log('[useStore.setUser] received userData:', userData);
         set({
           user: userData,
           isLoggedIn: !!userData,
@@ -550,6 +571,24 @@ const useUserStore = create<UserState>()(
             credits: 0,
           });
         }
+
+        // Extract plan and user_plan from user data (wrapped in `data`)
+        const rel = userData?.data?.relationships;
+        const planData = rel?.plan?.data || null;
+        const userPlanData = rel?.user_plan?.data || null;
+
+        set({
+          plan: planData
+            ? { id: planData.id, type: planData.type, attributes: planData.attributes }
+            : null,
+          userPlan: userPlanData
+            ? {
+                id: userPlanData.id,
+                type: userPlanData.type,
+                attributes: userPlanData.attributes,
+              }
+            : null,
+        });
       },
 
       setToken: (token: CookieValueTypes) =>
@@ -619,6 +658,8 @@ const useUserStore = create<UserState>()(
         access_token: state.access_token,
         credits: state.credits,
         accountId: state.accountId,
+        plan: state.plan,
+        userPlan: state.userPlan,
       }),
     }
   )

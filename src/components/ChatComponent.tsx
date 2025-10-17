@@ -88,6 +88,8 @@ export default function ChatPage({ access_token }: Props) {
     character,
     user,
     updateCharacterVideoPlayed,
+    plan,
+    userPlan,
   } = useUserStore();
 
   useEffect(() => {
@@ -898,6 +900,73 @@ export default function ChatPage({ access_token }: Props) {
             </div>
 
             <div className="flex items-center space-x-5">
+              {isLoggedIn && plan && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <h1 className="capitalize border rounded-lg flex items-center gap-1 px-3 py-1 font-semibold text-gray-100 cursor-pointer">
+                      {((plan as any)?.attributes?.name ?? (plan as any)?.data?.attributes?.name ?? 'Plan')}
+                    </h1>
+                  </PopoverTrigger>
+                  <PopoverContent className="border bg-gray-700 border-gray-400">
+                    <div className="space-y-3 text-white">
+                      <h3 className="text-xl font-semibold">
+                        {((plan as any)?.attributes?.name ?? (plan as any)?.data?.attributes?.name ?? 'Plan')}
+                      </h3>
+                      {(((plan as any)?.attributes?.description) ?? ((plan as any)?.data?.attributes?.description)) && (
+                        <p className="text-sm whitespace-pre-wrap">
+                          {((plan as any)?.attributes?.description ?? (plan as any)?.data?.attributes?.description)}
+                        </p>
+                      )}
+                      <div className="text-sm space-y-1">
+                        {((((plan as any)?.attributes?.price) ?? ((plan as any)?.data?.attributes?.price)) !== undefined) && (
+                          <div>
+                            <span className="text-gray-300">Price: </span>
+                            <span className="font-medium">
+                              {((plan as any)?.attributes?.price ?? (plan as any)?.data?.attributes?.price)}
+                            </span>
+                          </div>
+                        )}
+                        {(((plan as any)?.attributes?.duration) ?? ((plan as any)?.data?.attributes?.duration)) && (
+                          <div>
+                            <span className="text-gray-300">Duration: </span>
+                            <span className="font-medium">
+                              {((plan as any)?.attributes?.duration ?? (plan as any)?.data?.attributes?.duration)}{' '}
+                              {((plan as any)?.attributes?.duration_unit ?? (plan as any)?.data?.attributes?.duration_unit)}
+                            </span>
+                          </div>
+                        )}
+                        {(userPlan as any)?.attributes?.start_date && (
+                          <div>
+                            <span className="text-gray-300">Period: </span>
+                            <span className="font-medium">
+                              {new Date(
+                                (userPlan as any).attributes.start_date
+                              ).toLocaleDateString()}{' '}
+                              -{' '}
+                              {new Date(
+                                (userPlan as any).attributes.end_date
+                              ).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {(() => {
+                        const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as
+                          | string
+                          | undefined;
+                        return slug && (slug === 'free' || slug === 'bonus');
+                      })() && (
+                        <div className="pt-2">
+                          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                            Upgrade to Premium
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
               {isLoggedIn && <CreditsComponent />}
               <Popover>
                 <PopoverTrigger asChild>
