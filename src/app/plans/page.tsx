@@ -3,16 +3,19 @@
 import useUserStore from '@/zustand/useStore';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 export default function PlansPage() {
   const { paidPlans } = useUserStore();
+  const searchParams = useSearchParams();
+  const from = searchParams.get('from');
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8 text-white">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Premium Options</h1>
-        <Link href="/chat">
-          <Button className="border bg-transparent text-white">Back to Chat</Button>
+        <Link href={from === 'home' ? '/' : '/chat'}>
+          <Button className="border bg-transparent text-white">{from === 'home' ? 'Back to Home' : 'Back to Chat'}</Button>
         </Link>
       </header>
 

@@ -958,7 +958,7 @@ export default function ChatPage({ access_token }: Props) {
                         return slug && (slug === 'free' || slug === 'bonus');
                       })() && (
                         <div className="pt-2">
-                          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => router.push('/plans')}>
+                          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => router.push('/plans?from=chat')}>
                             Upgrade to Premium
                           </Button>
                         </div>
