@@ -936,18 +936,36 @@ export default function ChatPage({ access_token }: Props) {
                           </div>
                         )}
                         {(userPlan as any)?.attributes?.start_date && (
-                          <div>
-                            <span className="text-gray-300">Period: </span>
-                            <span className="font-medium">
-                              {new Date(
-                                (userPlan as any).attributes.start_date
-                              ).toLocaleDateString()}{' '}
-                              -{' '}
-                              {new Date(
-                                (userPlan as any).attributes.end_date
-                              ).toLocaleDateString()}
-                            </span>
-                          </div>
+                          (() => {
+                            const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as string | undefined;
+                            const start = new Date((userPlan as any).attributes.start_date);
+                            const end = new Date((userPlan as any).attributes.end_date);
+                            const isFreeOrBonus = slug === 'free' || slug === 'bonus';
+                            if (isFreeOrBonus) {
+                              return (
+                                <div>
+                                  <span className="text-gray-300">Period: </span>
+                                  <span className="font-medium">
+                                    {start.toLocaleDateString()} - {end.toLocaleDateString()}
+                                  </span>
+                                </div>
+                              );
+                            }
+                            const nextCharge = new Date(end);
+                            nextCharge.setDate(nextCharge.getDate() + 1);
+                            return (
+                              <>
+                                <div>
+                                  <span className="text-gray-300">Last paid on: </span>
+                                  <span className="font-medium">{start.toLocaleDateString()}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-300">Next charge date: </span>
+                                  <span className="font-medium">{nextCharge.toLocaleDateString()}</span>
+                                </div>
+                              </>
+                            );
+                          })()
                         )}
                       </div>
 
