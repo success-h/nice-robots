@@ -1,6 +1,7 @@
 'use client';
 
 import useUserStore from '@/zustand/useStore';
+import { loadStripe } from '@stripe/stripe-js';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -10,10 +11,11 @@ import Image from 'next/image';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function PlansPage() {
-  const { paidPlans } = useUserStore();
+  const { paidPlans, access_token, plan } = useUserStore();
   const searchParams = useSearchParams();
   const from = searchParams.get('from');
   const [characters, setCharacters] = useState<Array<{ id: string; attributes: { name: string; avatar: string } }>>([]);
+  const [creatingPlanId, setCreatingPlanId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,6 +46,90 @@ export default function PlansPage() {
     result.rightFour = shuffled.slice(4, 8);
     return result;
   }, [characters]);
+
+  const redirectToStripe = async (sessionId: string) => {
+    try {
+      const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+      if (publishableKey) {
+        const stripe = await loadStripe(publishableKey);
+        if (stripe) {
+          const { error } = await stripe.redirectToCheckout({ sessionId });
+          if (error) {
+            console.error('Stripe redirect error:', error.message);
+            // Fallback
+            window.location.href = `https://checkout.stripe.com/c/${sessionId}`;
+          }
+          return;
+        }
+      }
+      // If key missing or stripe failed to init, fallback to direct URL pattern
+      window.location.href = `https://checkout.stripe.com/c/${sessionId}`;
+    } catch (e) {
+      console.error('Stripe init error:', e);
+      window.location.href = `https://checkout.stripe.com/c/${sessionId}`;
+    }
+  };
+
+  const handleChoosePlan = async (plan: { id: string; attributes: { slug?: string; name: string } }) => {
+    if (!plan?.attributes?.slug) {
+      alert('Unable to start checkout: plan slug is missing.');
+      return;
+    }
+    try {
+      setCreatingPlanId(plan.id);
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const cameFrom = from === 'home' ? 'home' : 'chat';
+      const successUrl = `${origin}${cameFrom === 'home' ? '/' : '/chat'}`;
+      const cancelUrl = successUrl;
+      const res = await useApi(
+        '/orders',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            items: [
+              {
+                item_name: 'plan',
+                item_slug: plan.attributes.slug,
+                quantity: 1,
+              },
+            ],
+            success_url: successUrl,
+            cancel_url: cancelUrl,
+          }),
+        },
+        access_token
+      );
+      const json = await res.json();
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('needsUserRefresh', '1');
+          const prevPlanId = (plan as any)?.id ?? (plan as any)?.data?.id ?? '';
+          const prevPlanSlug = (plan as any)?.attributes?.slug ?? (plan as any)?.data?.attributes?.slug ?? '';
+          window.localStorage.setItem('prevPlanId', String(prevPlanId || ''));
+          window.localStorage.setItem('prevPlanSlug', String(prevPlanSlug || ''));
+        }
+      } catch (_e) {
+        // ignore storage errors
+      }
+      const sessionId = (json?.data?.attributes?.stripe_session_id ?? json?.data?.stripe_session_id) as string | undefined;
+      const checkoutUrl = (json?.data?.attributes?.checkout_url ?? json?.data?.checkout_url) as string | undefined;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+        return;
+      }
+      if (sessionId) {
+        await redirectToStripe(sessionId);
+        return;
+      }
+      console.warn('Order created, but no checkout URL or session id found:', json);
+      alert('Unable to redirect to checkout. Please try again later.');
+    } catch (err) {
+      console.error('Failed to create order:', err);
+      alert('Failed to start checkout. Please try again.');
+    } finally {
+      setCreatingPlanId(null);
+    }
+  };
 
   return (
     <div className="text-white">
@@ -123,7 +209,13 @@ export default function PlansPage() {
                             <div className="text-2xl font-extrabold">{p.attributes.price}</div>
                           )}
                           <div className="mt-2">
-                            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white w-full whitespace-nowrap">Choose</Button>
+                            <Button
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white w-full whitespace-nowrap"
+                              disabled={creatingPlanId === p.id}
+                              onClick={() => handleChoosePlan(p as any)}
+                            >
+                              {creatingPlanId === p.id ? 'Processing…' : 'Choose'}
+                            </Button>
                           </div>
                         </div>
                       </div>

@@ -5,6 +5,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
 import PlansBootstrapper from '@/components/PlansBootstrapper';
+import UserBootstrapper from '@/components/UserBootstrapper';
 
 export default function Provider({ children }: { children: ReactNode }) {
   const queryClient = new QueryClient({
@@ -20,6 +21,7 @@ export default function Provider({ children }: { children: ReactNode }) {
     <GoogleOAuthProvider clientId={GOOGLE_WEB_CLIENT_ID}>
       <QueryClientProvider client={queryClient}>
         <PlansBootstrapper />
+        <UserBootstrapper />
         {children}
       </QueryClientProvider>
     </GoogleOAuthProvider>
