@@ -78,8 +78,7 @@ export default function PlansPage() {
     try {
       setCreatingPlanId(plan.id);
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const cameFrom = from === 'home' ? 'home' : 'chat';
-      const successUrl = `${origin}${cameFrom === 'home' ? '/' : '/chat'}`;
+      const successUrl = `${origin}${from === 'home' || from === 'settings' ? '/' : '/chat'}`;
       const cancelUrl = successUrl;
       const res = await useApi(
         '/orders',
@@ -158,9 +157,15 @@ export default function PlansPage() {
         <div className="p-6 space-y-8">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Premium Options</h1>
-        <Link href={from === 'home' ? '/' : '/chat'}>
-          <Button className="border bg-transparent text-white">{from === 'home' ? 'Back to Home' : 'Back to Chat'}</Button>
-        </Link>
+        {(() => {
+          const backHref = from === 'home' ? '/' : from === 'settings' ? '/profile' : '/chat';
+          const backLabel = from === 'home' ? 'Back to Home' : from === 'settings' ? 'Back to Settings' : 'Back to Chat';
+          return (
+            <Link href={backHref}>
+              <Button className="border bg-transparent text-white">{backLabel}</Button>
+            </Link>
+          );
+        })()}
       </header>
 
       <section className="space-y-4">
