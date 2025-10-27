@@ -1,5 +1,7 @@
 import { CookieValueTypes } from 'cookies-next';
 import { create } from 'zustand';
+import { devtools } from 'zustand/middleware'
+
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 export interface CharacterData {
@@ -70,18 +72,24 @@ export type User = {
         };
       };
       plan?: {
-        data?: {
-          id: string;
-          type: string;
-          attributes?: Record<string, unknown>;
-        };
+        // Supports both wrapped and flattened forms
+        data?: { id: string; type: string; attributes?: Record<string, unknown> };
+        id?: string;
+        type?: string;
+        attributes?: Record<string, unknown>;
       };
+      // Support both legacy `user_plan` and new `users_plan`, and both wrapped/flattened
       user_plan?: {
-        data?: {
-          id: string;
-          type: string;
-          attributes?: Record<string, unknown>;
-        };
+        data?: { id: string; type: string; attributes?: Record<string, unknown> };
+        id?: string;
+        type?: string;
+        attributes?: Record<string, unknown>;
+      };
+      users_plan?: {
+        data?: { id: string; type: string; attributes?: Record<string, unknown> };
+        id?: string;
+        type?: string;
+        attributes?: Record<string, unknown>;
       };
     };
   };
@@ -219,6 +227,7 @@ const trimMessagesToLimit = (
 // No relation normalization helper needed; we directly read wrapped `data` objects
 
 const useUserStore = create<UserState>()(
+ devtools(
   persist(
     (set, get) => ({
       hasCharacter: false,
@@ -604,20 +613,23 @@ const useUserStore = create<UserState>()(
           });
         }
 
-        // Extract plan and user_plan from user data (wrapped in `data`)
+        // Extract plan and (users_)user_plan from user data; support wrapped or flattened
         const rel = userData?.data?.relationships;
-        const planData = rel?.plan?.data || null;
-        const userPlanData = rel?.user_plan?.data || null;
+        const rawPlan = rel?.plan || null;
+        const planData = (rawPlan && ('data' in rawPlan ? (rawPlan as any).data : rawPlan)) || null;
+
+        const rawUserPlan = rel?.users_plan || rel?.user_plan || null;
+        const userPlanData = (rawUserPlan && ('data' in rawUserPlan ? (rawUserPlan as any).data : rawUserPlan)) || null;
 
         set({
           plan: planData
-            ? { id: planData.id, type: planData.type, attributes: planData.attributes }
+            ? { id: (planData as any).id, type: (planData as any).type, attributes: (planData as any).attributes }
             : null,
           userPlan: userPlanData
             ? {
-                id: userPlanData.id,
-                type: userPlanData.type,
-                attributes: userPlanData.attributes,
+                id: (userPlanData as any).id,
+                type: (userPlanData as any).type,
+                attributes: (userPlanData as any).attributes,
               }
             : null,
         });
@@ -707,6 +719,7 @@ const useUserStore = create<UserState>()(
       }),
     }
   )
+ )
 );
 
 export const useModerationHandling = () => {
