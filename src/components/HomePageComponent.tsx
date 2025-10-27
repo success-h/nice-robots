@@ -366,6 +366,20 @@ export default function HomePageComponent({ access_token }: Props) {
                             </Button>
                           </div>
                         )}
+
+                        {(() => {
+                          const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as string | undefined;
+                          return slug && slug !== 'free' && slug !== 'bonus';
+                        })() && (
+                          <div className="pt-2">
+                            <Button
+                              className="border border-emerald-500 text-emerald-400 hover:bg-emerald-500/10 bg-transparent"
+                              onClick={() => router.push('/credits?from=home')}
+                            >
+                              Buy credits
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </PopoverContent>
                   </Popover>
