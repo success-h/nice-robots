@@ -486,6 +486,14 @@ export default function ChatPage({ access_token }: Props) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentChat?.chatHistory]);
 
+  const lastAssistantIndex = currentChat?.chatHistory
+    ? currentChat.chatHistory.reduce(
+        (acc: number, msg: Message, i: number) =>
+          msg.role === 'assistant' ? i : acc,
+        -1
+      )
+    : -1;
+
   const transcribeAudio = async (audioBlob: Blob) => {
     try {
       if (!audioBlob || audioBlob.size === 0) {
@@ -1162,13 +1170,14 @@ export default function ChatPage({ access_token }: Props) {
                             </video>
                           </div>
                         ) : (
-                          <div
-                            className={`inline-block p-3 rounded-lg ${
-                              message.role === 'user'
-                                ? 'bg-emerald-500 text-white'
-                                : 'bg-gray-800 text-gray-100'
-                            }`}
-                          >
+                          <div className="relative inline-block">
+                            <div
+                              className={`inline-block p-3 rounded-lg ${
+                                message.role === 'user'
+                                  ? 'bg-emerald-500 text-white'
+                                  : 'bg-gray-800 text-gray-100'
+                              }`}
+                            >
                             {message.displayContent &&
                             message.displayContent.length > 0 ? (
                               message.displayContent.map(
@@ -1231,6 +1240,51 @@ export default function ChatPage({ access_token }: Props) {
                                 }}
                               />
                             )}
+                            </div>
+                            {message.role === 'assistant' &&
+                              response_type === 'voice' &&
+                              isSpeaking &&
+                              index === lastAssistantIndex && (
+                                <div className="pointer-events-none absolute inset-0 rounded-lg overflow-hidden">
+                                  <div
+                                    className="w-full h-full opacity-100"
+                                    style={{
+                                      background:
+                                        'linear-gradient(120deg, rgba(255,99,132,0.95), rgba(255,205,86,0.95), rgba(54,162,235,0.95), rgba(153,102,255,0.95))',
+                                      backgroundSize: '300% 300%',
+                                      animation: 'rainbowSheen 8.4s ease-in-out infinite',
+                                      backdropFilter: 'blur(4px)'
+                                    }}
+                                  />
+                                  <div
+                                    className="absolute top-0 right-0 h-full"
+                                    style={{
+                                      width: '33%',
+                                      backgroundImage: `url(${character?.attributes?.avatar || '/default-avatar.png'})`,
+                                      backgroundSize: 'cover',
+                                      backgroundPosition: 'center',
+                                      backgroundRepeat: 'no-repeat',
+                                      opacity: 0.32,
+                                      mixBlendMode: 'soft-light',
+                                      animation: 'pulseGlow 2.6s ease-in-out infinite'
+                                    }}
+                                  />
+                                  <div
+                                    className="absolute inset-0 opacity-50"
+                                    style={{
+                                      background:
+                                        'repeating-conic-gradient(from 0deg, rgba(255,255,255,0.18) 0deg, rgba(255,255,255,0.18) 6deg, transparent 8deg, transparent 16deg)',
+                                      transform: 'rotate(0deg)',
+                                      animation: 'rotateRays 30s linear infinite',
+                                      mixBlendMode: 'soft-light',
+                                      WebkitMaskImage:
+                                        'radial-gradient(circle at 50% 50%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 35%, rgba(0,0,0,0.5) 65%, rgba(0,0,0,0) 100%)',
+                                      maskImage:
+                                        'radial-gradient(circle at 50% 50%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 35%, rgba(0,0,0,0.5) 65%, rgba(0,0,0,0) 100%)'
+                                    }}
+                                  />
+                                </div>
+                              )}
                           </div>
                         )}
                         {message.moderationFailed && (
@@ -1439,6 +1493,29 @@ export default function ChatPage({ access_token }: Props) {
           </div>
         )}
       </div>
+      <style jsx>{`
+        @keyframes rainbowSheen {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+
+        @keyframes rotateRays {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulseGlow {
+          0%, 100% { opacity: 0.85; }
+          50% { opacity: 1; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          * {
+            animation: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
