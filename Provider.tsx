@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
 import PlansBootstrapper from '@/components/PlansBootstrapper';
 import UserBootstrapper from '@/components/UserBootstrapper';
+import { Toaster } from '@/components/ui/sonner';
+import InsufficientResourcesModal from '@/components/InsufficientResourcesModal';
 
 export default function Provider({ children }: { children: ReactNode }) {
   const queryClient = new QueryClient({
@@ -22,6 +24,8 @@ export default function Provider({ children }: { children: ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <PlansBootstrapper />
         <UserBootstrapper />
+        <Toaster richColors position="top-right" />
+        <InsufficientResourcesModal />
         {children}
       </QueryClientProvider>
     </GoogleOAuthProvider>
