@@ -180,6 +180,11 @@ export interface UserState {
   userPlan: { id: string; type: string; attributes?: Record<string, unknown> } | null;
   paidPlans: PlanResource[] | null;
   creditPacks: CreditPackResource[] | null;
+  // Global modal for insufficient credits/plan
+  insufficientModalOpen: boolean;
+  insufficientModalType: 'credits' | 'plan' | null;
+  insufficientModalMessage: string | null;
+  insufficientModalFrom: 'home' | 'chat' | 'settings' | null;
   setUser: (userData: User | null) => void;
   setCredits: (credits: number) => void;
   setAccountId: (accountId: string | null) => void;
@@ -212,6 +217,12 @@ export interface UserState {
   updateCharacterVideoPlayed: (characterId: string) => void; // Added this method
   setPaidPlans: (plans: PlanResource[] | null) => void;
   setCreditPacks: (packs: CreditPackResource[] | null) => void;
+  openInsufficientModal: (args: {
+    type: 'credits' | 'plan';
+    message?: string | null;
+    from?: 'home' | 'chat' | 'settings' | null;
+  }) => void;
+  closeInsufficientModal: () => void;
 }
 
 const trimMessagesToLimit = (
@@ -246,6 +257,10 @@ const useUserStore = create<UserState>()(
       userPlan: null,
       paidPlans: null,
       creditPacks: null,
+      insufficientModalOpen: false,
+      insufficientModalType: null,
+      insufficientModalMessage: null,
+      insufficientModalFrom: null,
 
       setCharacters(characterData) {
         set({
@@ -695,6 +710,22 @@ const useUserStore = create<UserState>()(
       setCreditPacks: (packs) =>
         set({
           creditPacks: Array.isArray(packs) ? packs : null,
+        }),
+
+      openInsufficientModal: ({ type, message = null, from = null }) =>
+        set({
+          insufficientModalOpen: true,
+          insufficientModalType: type,
+          insufficientModalMessage: message,
+          insufficientModalFrom: from,
+        }),
+
+      closeInsufficientModal: () =>
+        set({
+          insufficientModalOpen: false,
+          insufficientModalType: null,
+          insufficientModalMessage: null,
+          insufficientModalFrom: null,
         }),
     }),
     {
