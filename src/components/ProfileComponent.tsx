@@ -106,6 +106,7 @@ export default function ProfilePage({ access_token }: Props) {
   const queryClient = useQueryClient();
   const deleteCookie = useDeleteCookie();
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [cancelSubLoading, setCancelSubLoading] = useState(false);
 
   const defaultAgeTypes: AgeType[] = [
     {
@@ -242,6 +243,37 @@ export default function ProfilePage({ access_token }: Props) {
     setDeleteLoading(false);
     logout();
     router.push('/');
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!access_token) return;
+    try {
+      setCancelSubLoading(true);
+      const cancelRes = await useApi(
+        '/orders/active/cancel',
+        { method: 'PATCH' },
+        access_token
+      );
+      if (!cancelRes.ok) {
+        // silently ignore; optionally surface UI feedback later
+        return;
+      }
+      const userRes = await useApi(
+        '/user',
+        { method: 'GET', headers: { 'Cache-Control': 'no-cache' } },
+        access_token
+      );
+      if (userRes.ok) {
+        const json = await userRes.json();
+        if (json?.data) {
+          setUser({ data: json.data });
+        }
+      }
+    } catch (_e) {
+      // ignore
+    } finally {
+      setCancelSubLoading(false);
+    }
   };
 
   return (
@@ -560,10 +592,14 @@ export default function ProfilePage({ access_token }: Props) {
                 <div className="pt-2">
                   <button
                     type="button"
-                    onClick={(e) => e.preventDefault()}
-                    className="text-red-400 hover:text-red-300 underline decoration-red-400/60"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (!cancelSubLoading) handleCancelSubscription();
+                    }}
+                    className="text-red-400 hover:text-red-300 underline decoration-red-400/60 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    disabled={cancelSubLoading}
                   >
-                    Unsubscribe
+                    {cancelSubLoading ? 'Unsubscribing…' : 'Unsubscribe'}
                   </button>
                 </div>
               )}
