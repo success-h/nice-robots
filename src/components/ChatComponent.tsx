@@ -836,7 +836,7 @@ export default function ChatPage({ access_token }: Props) {
       <div className="flex-1 flex flex-col bg-gray-800">
         <div className="border-b border-gray-700 p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:space-x-3">
               {!sidebarOpen && (
                 <button
                   onClick={() => setSidebarOpen(true)}
@@ -874,32 +874,29 @@ export default function ChatPage({ access_token }: Props) {
                         Choose a relationship
                       </h3>
                       <div className="flex flex-wrap justify-self-auto gap-2 text-sm">
-                        {relationshipTypes.map((type) => (
-                          <Button
-                            key={type}
-                            variant={
-                              selectedRelationship === type
-                                ? 'default'
-                                : 'outline'
-                            }
-                            className={`text-white capitalize border-white bg-transparent ${
-                              selectedRelationship === type &&
-                              'border bg-black/60 text-white'
-                            }`}
-                            onClick={() => {
-                              handleRelationshipChange(type);
-                            }}
-                            disabled={
-                              isCreatingChat || selectedRelationship === type
-                            }
-                          >
-                            {isCreatingChat &&
-                              selectedRelationship === type && (
+                        {relationshipTypes.map((type) => {
+                          const isCurrent =
+                            currentChat?.data?.attributes?.relationship_type === type;
+                          const isSelected = selectedRelationship === type || isCurrent;
+                          return (
+                            <Button
+                              key={type}
+                              variant={isSelected ? 'default' : 'outline'}
+                              className={`text-white capitalize border-white bg-transparent ${
+                                isSelected && 'border bg-black/60 text-white'
+                              }`}
+                              onClick={() => {
+                                if (!isCurrent) handleRelationshipChange(type);
+                              }}
+                              disabled={isCreatingChat || isCurrent}
+                            >
+                              {isCreatingChat && isSelected && (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               )}
-                            {type}
-                          </Button>
-                        ))}
+                              {type}
+                            </Button>
+                          );
+                        })}
                       </div>
                     </div>
                   </PopoverContent>
@@ -1154,8 +1151,8 @@ export default function ChatPage({ access_token }: Props) {
                         )}
                       </div>
                       <div
-                        className={`flex-1 max-w-[80%] ${
-                          message.role === 'user' ? 'text-right' : ''
+                        className={`flex-1 max-w-[80%] flex ${
+                          message.role === 'user' ? 'justify-end' : 'justify-start'
                         }`}
                       >
                         {message.messageType === 'video' ? (
@@ -1170,7 +1167,7 @@ export default function ChatPage({ access_token }: Props) {
                             </video>
                           </div>
                         ) : (
-                          <div className="relative inline-block">
+                          <div className={`relative inline-block`}>
                             <div
                               className={`inline-block p-3 rounded-lg ${
                                 message.role === 'user'
@@ -1184,18 +1181,19 @@ export default function ChatPage({ access_token }: Props) {
                                 (item, contentIndex) => {
                                   if (item.type === 'code') {
                                     return (
-                                      <SyntaxHighlighter
-                                        key={contentIndex}
-                                        language="python"
-                                        style={oneDark}
-                                        customStyle={{
-                                          borderRadius: '0.5rem',
-                                          marginBottom: '0.75rem',
-                                          marginTop: '0.75rem',
-                                        }}
-                                      >
-                                        {item.value}
-                                      </SyntaxHighlighter>
+                                      <div key={contentIndex} dir="ltr" style={{ textAlign: 'left' }}>
+                                        <SyntaxHighlighter
+                                          language="python"
+                                          style={oneDark}
+                                          customStyle={{
+                                            borderRadius: '0.5rem',
+                                            marginBottom: '0.75rem',
+                                            marginTop: '0.75rem',
+                                          }}
+                                        >
+                                          {item.value}
+                                        </SyntaxHighlighter>
+                                      </div>
                                     );
                                   } else if (item.type === 'html') {
                                     return (
@@ -1207,6 +1205,7 @@ export default function ChatPage({ access_token }: Props) {
                                             ? 'bounce-effect text-4xl'
                                             : 'text-sm'
                                         }`}
+                                        dir="auto"
                                         dangerouslySetInnerHTML={{
                                           __html: item.value,
                                         }}
@@ -1220,6 +1219,7 @@ export default function ChatPage({ access_token }: Props) {
                                       <div
                                         key={contentIndex}
                                         className={`message-bubble ${textClasses}`}
+                                        dir="auto"
                                       >
                                         {item.value}
                                       </div>
@@ -1235,6 +1235,7 @@ export default function ChatPage({ access_token }: Props) {
                                     ? 'bounce-effect text-4xl'
                                     : 'text-sm'
                                 }`}
+                                dir="auto"
                                 dangerouslySetInnerHTML={{
                                   __html: message.content,
                                 }}
