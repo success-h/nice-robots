@@ -1,5 +1,7 @@
 import { CookieValueTypes } from 'cookies-next';
 import { create } from 'zustand';
+import { devtools } from 'zustand/middleware'
+
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 export interface CharacterData {
@@ -69,6 +71,26 @@ export type User = {
           };
         };
       };
+      plan?: {
+        // Supports both wrapped and flattened forms
+        data?: { id: string; type: string; attributes?: Record<string, unknown> };
+        id?: string;
+        type?: string;
+        attributes?: Record<string, unknown>;
+      };
+      // Support both legacy `user_plan` and new `users_plan`, and both wrapped/flattened
+      user_plan?: {
+        data?: { id: string; type: string; attributes?: Record<string, unknown> };
+        id?: string;
+        type?: string;
+        attributes?: Record<string, unknown>;
+      };
+      users_plan?: {
+        data?: { id: string; type: string; attributes?: Record<string, unknown> };
+        id?: string;
+        type?: string;
+        attributes?: Record<string, unknown>;
+      };
     };
   };
 };
@@ -122,12 +144,47 @@ export type ModerationDetails = {
   severity: string;
 }[];
 
+export type PlanResource = {
+  id: string;
+  type: string;
+  attributes: {
+    name: string;
+    description?: string;
+    duration?: number;
+    duration_unit?: string;
+    slug?: string;
+    price?: string | number;
+    credit_included?: string | number;
+  };
+};
+
+export type CreditPackResource = {
+  id: string;
+  type: string;
+  attributes: {
+    name: string;
+    description?: string;
+    quantity?: number;
+    slug?: string;
+    price?: string | number;
+  };
+};
+
 export interface UserState {
   user: User | null;
   access_token: string;
   isLoggedIn: boolean;
   credits: number;
   accountId: string | null;
+  plan: { id: string; type: string; attributes?: Record<string, unknown> } | null;
+  userPlan: { id: string; type: string; attributes?: Record<string, unknown> } | null;
+  paidPlans: PlanResource[] | null;
+  creditPacks: CreditPackResource[] | null;
+  // Global modal for insufficient credits/plan
+  insufficientModalOpen: boolean;
+  insufficientModalType: 'credits' | 'plan' | null;
+  insufficientModalMessage: string | null;
+  insufficientModalFrom: 'home' | 'chat' | 'settings' | null;
   setUser: (userData: User | null) => void;
   setCredits: (credits: number) => void;
   setAccountId: (accountId: string | null) => void;
@@ -158,6 +215,14 @@ export interface UserState {
   addCharacter: (characterData: CharacterData) => void;
   deleteCharacter: (characterId: string) => void;
   updateCharacterVideoPlayed: (characterId: string) => void; // Added this method
+  setPaidPlans: (plans: PlanResource[] | null) => void;
+  setCreditPacks: (packs: CreditPackResource[] | null) => void;
+  openInsufficientModal: (args: {
+    type: 'credits' | 'plan';
+    message?: string | null;
+    from?: 'home' | 'chat' | 'settings' | null;
+  }) => void;
+  closeInsufficientModal: () => void;
 }
 
 const trimMessagesToLimit = (
@@ -170,7 +235,10 @@ const trimMessagesToLimit = (
   return messages.slice(messages.length - limit);
 };
 
+// No relation normalization helper needed; we directly read wrapped `data` objects
+
 const useUserStore = create<UserState>()(
+ devtools(
   persist(
     (set, get) => ({
       hasCharacter: false,
@@ -185,6 +253,14 @@ const useUserStore = create<UserState>()(
       access_token: '',
       credits: 0,
       accountId: null,
+      plan: null,
+      userPlan: null,
+      paidPlans: null,
+      creditPacks: null,
+      insufficientModalOpen: false,
+      insufficientModalType: null,
+      insufficientModalMessage: null,
+      insufficientModalFrom: null,
 
       setCharacters(characterData) {
         set({
@@ -530,6 +606,7 @@ const useUserStore = create<UserState>()(
         }),
 
       setUser: (userData) => {
+        console.log('[useStore.setUser] received userData:', userData);
         set({
           user: userData,
           isLoggedIn: !!userData,
@@ -550,6 +627,27 @@ const useUserStore = create<UserState>()(
             credits: 0,
           });
         }
+
+        // Extract plan and (users_)user_plan from user data; support wrapped or flattened
+        const rel = userData?.data?.relationships;
+        const rawPlan = rel?.plan || null;
+        const planData = (rawPlan && ('data' in rawPlan ? (rawPlan as any).data : rawPlan)) || null;
+
+        const rawUserPlan = rel?.users_plan || rel?.user_plan || null;
+        const userPlanData = (rawUserPlan && ('data' in rawUserPlan ? (rawUserPlan as any).data : rawUserPlan)) || null;
+
+        set({
+          plan: planData
+            ? { id: (planData as any).id, type: (planData as any).type, attributes: (planData as any).attributes }
+            : null,
+          userPlan: userPlanData
+            ? {
+                id: (userPlanData as any).id,
+                type: (userPlanData as any).type,
+                attributes: (userPlanData as any).attributes,
+              }
+            : null,
+        });
       },
 
       setToken: (token: CookieValueTypes) =>
@@ -603,6 +701,32 @@ const useUserStore = create<UserState>()(
           user: null,
           isLoggedIn: false,
         }),
+
+      setPaidPlans: (plans) =>
+        set({
+          paidPlans: Array.isArray(plans) ? plans : null,
+        }),
+
+      setCreditPacks: (packs) =>
+        set({
+          creditPacks: Array.isArray(packs) ? packs : null,
+        }),
+
+      openInsufficientModal: ({ type, message = null, from = null }) =>
+        set({
+          insufficientModalOpen: true,
+          insufficientModalType: type,
+          insufficientModalMessage: message,
+          insufficientModalFrom: from,
+        }),
+
+      closeInsufficientModal: () =>
+        set({
+          insufficientModalOpen: false,
+          insufficientModalType: null,
+          insufficientModalMessage: null,
+          insufficientModalFrom: null,
+        }),
     }),
     {
       name: 'user-storage',
@@ -619,9 +743,14 @@ const useUserStore = create<UserState>()(
         access_token: state.access_token,
         credits: state.credits,
         accountId: state.accountId,
+        plan: state.plan,
+        userPlan: state.userPlan,
+        paidPlans: state.paidPlans,
+        creditPacks: state.creditPacks,
       }),
     }
   )
+ )
 );
 
 export const useModerationHandling = () => {

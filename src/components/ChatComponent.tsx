@@ -88,6 +88,8 @@ export default function ChatPage({ access_token }: Props) {
     character,
     user,
     updateCharacterVideoPlayed,
+    plan,
+    userPlan,
   } = useUserStore();
 
   useEffect(() => {
@@ -484,6 +486,14 @@ export default function ChatPage({ access_token }: Props) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentChat?.chatHistory]);
 
+  const lastAssistantIndex = currentChat?.chatHistory
+    ? currentChat.chatHistory.reduce(
+        (acc: number, msg: Message, i: number) =>
+          msg.role === 'assistant' ? i : acc,
+        -1
+      )
+    : -1;
+
   const transcribeAudio = async (audioBlob: Blob) => {
     try {
       if (!audioBlob || audioBlob.size === 0) {
@@ -826,7 +836,7 @@ export default function ChatPage({ access_token }: Props) {
       <div className="flex-1 flex flex-col bg-gray-800">
         <div className="border-b border-gray-700 p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:space-x-3">
               {!sidebarOpen && (
                 <button
                   onClick={() => setSidebarOpen(true)}
@@ -864,32 +874,29 @@ export default function ChatPage({ access_token }: Props) {
                         Choose a relationship
                       </h3>
                       <div className="flex flex-wrap justify-self-auto gap-2 text-sm">
-                        {relationshipTypes.map((type) => (
-                          <Button
-                            key={type}
-                            variant={
-                              selectedRelationship === type
-                                ? 'default'
-                                : 'outline'
-                            }
-                            className={`text-white capitalize border-white bg-transparent ${
-                              selectedRelationship === type &&
-                              'border bg-black/60 text-white'
-                            }`}
-                            onClick={() => {
-                              handleRelationshipChange(type);
-                            }}
-                            disabled={
-                              isCreatingChat || selectedRelationship === type
-                            }
-                          >
-                            {isCreatingChat &&
-                              selectedRelationship === type && (
+                        {relationshipTypes.map((type) => {
+                          const isCurrent =
+                            currentChat?.data?.attributes?.relationship_type === type;
+                          const isSelected = selectedRelationship === type || isCurrent;
+                          return (
+                            <Button
+                              key={type}
+                              variant={isSelected ? 'default' : 'outline'}
+                              className={`text-white capitalize border-white bg-transparent ${
+                                isSelected && 'border bg-black/60 text-white'
+                              }`}
+                              onClick={() => {
+                                if (!isCurrent) handleRelationshipChange(type);
+                              }}
+                              disabled={isCreatingChat || isCurrent}
+                            >
+                              {isCreatingChat && isSelected && (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               )}
-                            {type}
-                          </Button>
-                        ))}
+                              {type}
+                            </Button>
+                          );
+                        })}
                       </div>
                     </div>
                   </PopoverContent>
@@ -898,6 +905,107 @@ export default function ChatPage({ access_token }: Props) {
             </div>
 
             <div className="flex items-center space-x-5">
+              {isLoggedIn && plan && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <h1 className="capitalize border rounded-lg flex items-center gap-1 px-3 py-1 font-semibold text-gray-100 cursor-pointer">
+                      {((plan as any)?.attributes?.name ?? (plan as any)?.data?.attributes?.name ?? 'Plan')}
+                    </h1>
+                  </PopoverTrigger>
+                  <PopoverContent className="border bg-gray-700 border-gray-400">
+                    <div className="space-y-3 text-white">
+                      <h3 className="text-xl font-semibold">
+                        {((plan as any)?.attributes?.name ?? (plan as any)?.data?.attributes?.name ?? 'Plan')}
+                      </h3>
+                      {(((plan as any)?.attributes?.description) ?? ((plan as any)?.data?.attributes?.description)) && (
+                        <p className="text-sm whitespace-pre-wrap">
+                          {((plan as any)?.attributes?.description ?? (plan as any)?.data?.attributes?.description)}
+                        </p>
+                      )}
+                      <div className="text-sm space-y-1">
+                        {((((plan as any)?.attributes?.price) ?? ((plan as any)?.data?.attributes?.price)) !== undefined) && (
+                          <div>
+                            <span className="text-gray-300">Price: </span>
+                            <span className="font-medium">
+                              {((plan as any)?.attributes?.price ?? (plan as any)?.data?.attributes?.price)}
+                            </span>
+                          </div>
+                        )}
+                        {(((plan as any)?.attributes?.duration) ?? ((plan as any)?.data?.attributes?.duration)) && (
+                          <div>
+                            <span className="text-gray-300">Duration: </span>
+                            <span className="font-medium">
+                              {((plan as any)?.attributes?.duration ?? (plan as any)?.data?.attributes?.duration)}{' '}
+                              {((plan as any)?.attributes?.duration_unit ?? (plan as any)?.data?.attributes?.duration_unit)}
+                            </span>
+                          </div>
+                        )}
+                        {(userPlan as any)?.attributes?.start_date && (
+                          (() => {
+                            const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as string | undefined;
+                            const start = new Date((userPlan as any).attributes.start_date);
+                            const end = new Date((userPlan as any).attributes.end_date);
+                            const isFreeOrBonus = slug === 'free' || slug === 'bonus';
+                            if (isFreeOrBonus) {
+                              return (
+                                <div>
+                                  <span className="text-gray-300">Period: </span>
+                                  <span className="font-medium">
+                                    {start.toLocaleDateString()} - {end.toLocaleDateString()}
+                                  </span>
+                                </div>
+                              );
+                            }
+                            const nextCharge = new Date(end);
+                            nextCharge.setDate(nextCharge.getDate() + 1);
+                            return (
+                              <>
+                                <div>
+                                  <span className="text-gray-300">Last paid on: </span>
+                                  <span className="font-medium">{start.toLocaleDateString()}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-300">Next charge date: </span>
+                                  <span className="font-medium">{nextCharge.toLocaleDateString()}</span>
+                                </div>
+                              </>
+                            );
+                          })()
+                        )}
+                      </div>
+
+                      {(() => {
+                        const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as
+                          | string
+                          | undefined;
+                        return slug && (slug === 'free' || slug === 'bonus');
+                      })() && (
+                        <div className="pt-2">
+                          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => router.push('/plans?from=chat')}>
+                            Upgrade to Premium
+                          </Button>
+                        </div>
+                      )}
+
+                      {(() => {
+                        const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as
+                          | string
+                          | undefined;
+                        return slug && slug !== 'free' && slug !== 'bonus';
+                      })() && (
+                        <div className="pt-2">
+                          <Button
+                            className="border border-emerald-500 text-emerald-400 hover:bg-emerald-500/10 bg-transparent"
+                            onClick={() => router.push('/credits?from=chat')}
+                          >
+                            Buy credits
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
               {isLoggedIn && <CreditsComponent />}
               <Popover>
                 <PopoverTrigger asChild>
@@ -1043,8 +1151,8 @@ export default function ChatPage({ access_token }: Props) {
                         )}
                       </div>
                       <div
-                        className={`flex-1 max-w-[80%] ${
-                          message.role === 'user' ? 'text-right' : ''
+                        className={`flex-1 max-w-[80%] flex ${
+                          message.role === 'user' ? 'justify-end' : 'justify-start'
                         }`}
                       >
                         {message.messageType === 'video' ? (
@@ -1059,31 +1167,33 @@ export default function ChatPage({ access_token }: Props) {
                             </video>
                           </div>
                         ) : (
-                          <div
-                            className={`inline-block p-3 rounded-lg ${
-                              message.role === 'user'
-                                ? 'bg-emerald-500 text-white'
-                                : 'bg-gray-800 text-gray-100'
-                            }`}
-                          >
+                          <div className={`relative inline-block`}>
+                            <div
+                              className={`inline-block p-3 rounded-lg ${
+                                message.role === 'user'
+                                  ? 'bg-emerald-500 text-white'
+                                  : 'bg-gray-800 text-gray-100'
+                              }`}
+                            >
                             {message.displayContent &&
                             message.displayContent.length > 0 ? (
                               message.displayContent.map(
                                 (item, contentIndex) => {
                                   if (item.type === 'code') {
                                     return (
-                                      <SyntaxHighlighter
-                                        key={contentIndex}
-                                        language="python"
-                                        style={oneDark}
-                                        customStyle={{
-                                          borderRadius: '0.5rem',
-                                          marginBottom: '0.75rem',
-                                          marginTop: '0.75rem',
-                                        }}
-                                      >
-                                        {item.value}
-                                      </SyntaxHighlighter>
+                                      <div key={contentIndex} dir="ltr" style={{ textAlign: 'left' }}>
+                                        <SyntaxHighlighter
+                                          language="python"
+                                          style={oneDark}
+                                          customStyle={{
+                                            borderRadius: '0.5rem',
+                                            marginBottom: '0.75rem',
+                                            marginTop: '0.75rem',
+                                          }}
+                                        >
+                                          {item.value}
+                                        </SyntaxHighlighter>
+                                      </div>
                                     );
                                   } else if (item.type === 'html') {
                                     return (
@@ -1095,6 +1205,7 @@ export default function ChatPage({ access_token }: Props) {
                                             ? 'bounce-effect text-4xl'
                                             : 'text-sm'
                                         }`}
+                                        dir="auto"
                                         dangerouslySetInnerHTML={{
                                           __html: item.value,
                                         }}
@@ -1108,6 +1219,7 @@ export default function ChatPage({ access_token }: Props) {
                                       <div
                                         key={contentIndex}
                                         className={`message-bubble ${textClasses}`}
+                                        dir="auto"
                                       >
                                         {item.value}
                                       </div>
@@ -1123,11 +1235,57 @@ export default function ChatPage({ access_token }: Props) {
                                     ? 'bounce-effect text-4xl'
                                     : 'text-sm'
                                 }`}
+                                dir="auto"
                                 dangerouslySetInnerHTML={{
                                   __html: message.content,
                                 }}
                               />
                             )}
+                            </div>
+                            {message.role === 'assistant' &&
+                              response_type === 'voice' &&
+                              isSpeaking &&
+                              index === lastAssistantIndex && (
+                                <div className="pointer-events-none absolute inset-0 rounded-lg overflow-hidden">
+                                  <div
+                                    className="w-full h-full opacity-100"
+                                    style={{
+                                      background:
+                                        'linear-gradient(120deg, rgba(255,99,132,0.95), rgba(255,205,86,0.95), rgba(54,162,235,0.95), rgba(153,102,255,0.95))',
+                                      backgroundSize: '300% 300%',
+                                      animation: 'rainbowSheen 8.4s ease-in-out infinite',
+                                      backdropFilter: 'blur(4px)'
+                                    }}
+                                  />
+                                  <div
+                                    className="absolute top-0 right-0 h-full"
+                                    style={{
+                                      width: '33%',
+                                      backgroundImage: `url(${character?.attributes?.avatar || '/default-avatar.png'})`,
+                                      backgroundSize: 'cover',
+                                      backgroundPosition: 'center',
+                                      backgroundRepeat: 'no-repeat',
+                                      opacity: 0.32,
+                                      mixBlendMode: 'soft-light',
+                                      animation: 'pulseGlow 2.6s ease-in-out infinite'
+                                    }}
+                                  />
+                                  <div
+                                    className="absolute inset-0 opacity-50"
+                                    style={{
+                                      background:
+                                        'repeating-conic-gradient(from 0deg, rgba(255,255,255,0.18) 0deg, rgba(255,255,255,0.18) 6deg, transparent 8deg, transparent 16deg)',
+                                      transform: 'rotate(0deg)',
+                                      animation: 'rotateRays 30s linear infinite',
+                                      mixBlendMode: 'soft-light',
+                                      WebkitMaskImage:
+                                        'radial-gradient(circle at 50% 50%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 35%, rgba(0,0,0,0.5) 65%, rgba(0,0,0,0) 100%)',
+                                      maskImage:
+                                        'radial-gradient(circle at 50% 50%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 35%, rgba(0,0,0,0.5) 65%, rgba(0,0,0,0) 100%)'
+                                    }}
+                                  />
+                                </div>
+                              )}
                           </div>
                         )}
                         {message.moderationFailed && (
@@ -1336,6 +1494,29 @@ export default function ChatPage({ access_token }: Props) {
           </div>
         )}
       </div>
+      <style jsx>{`
+        @keyframes rainbowSheen {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+
+        @keyframes rotateRays {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulseGlow {
+          0%, 100% { opacity: 0.85; }
+          50% { opacity: 1; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          * {
+            animation: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

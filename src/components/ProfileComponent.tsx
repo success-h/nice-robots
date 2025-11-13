@@ -101,11 +101,12 @@ export default function ProfilePage({ access_token }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [ageTypes, setAgeTypes] = useState<AgeType[]>([]);
   const [fetchError, setFetchError] = useState<string>('');
-  const { user, setUser, logout } = useUserStore();
+  const { user, setUser, logout, plan, userPlan } = useUserStore();
   const router = useRouter();
   const queryClient = useQueryClient();
   const deleteCookie = useDeleteCookie();
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [cancelSubLoading, setCancelSubLoading] = useState(false);
 
   const defaultAgeTypes: AgeType[] = [
     {
@@ -242,6 +243,37 @@ export default function ProfilePage({ access_token }: Props) {
     setDeleteLoading(false);
     logout();
     router.push('/');
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!access_token) return;
+    try {
+      setCancelSubLoading(true);
+      const cancelRes = await useApi(
+        '/orders/active/cancel',
+        { method: 'PATCH' },
+        access_token
+      );
+      if (!cancelRes.ok) {
+        // silently ignore; optionally surface UI feedback later
+        return;
+      }
+      const userRes = await useApi(
+        '/user',
+        { method: 'GET', headers: { 'Cache-Control': 'no-cache' } },
+        access_token
+      );
+      if (userRes.ok) {
+        const json = await userRes.json();
+        if (json?.data) {
+          setUser({ data: json.data });
+        }
+      }
+    } catch (_e) {
+      // ignore
+    } finally {
+      setCancelSubLoading(false);
+    }
   };
 
   return (
@@ -513,6 +545,81 @@ export default function ProfilePage({ access_token }: Props) {
                 </div>
               </div>
             </div>
+          )}
+        </div>
+
+        {/* Subscription */}
+        <div className="bg-gray-800 rounded-2xl p-6">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center">
+              <Calendar className="h-5 w-5 text-emerald-400" />
+            </div>
+            <h3 className="text-lg font-semibold">Subscription</h3>
+          </div>
+
+          {plan ? (
+            <div className="ml-13 space-y-2">
+              <p className="text-gray-200">
+                <span className="text-gray-400">Current plan:</span>{' '}
+                <span className="font-semibold">{(plan as any)?.attributes?.name}</span>
+              </p>
+              {(plan as any)?.attributes?.description && (
+                <p className="text-sm text-gray-300 whitespace-pre-wrap">{(plan as any)?.attributes?.description}</p>
+              )}
+              <div className="text-sm text-gray-300 space-y-1">
+                {(plan as any)?.attributes?.price !== undefined && (
+                  <div>
+                    <span className="text-gray-400">Price:</span> {(plan as any)?.attributes?.price}
+                  </div>
+                )}
+                {(plan as any)?.attributes?.duration && (
+                  <div>
+                    <span className="text-gray-400">Duration:</span> {(plan as any)?.attributes?.duration} {(plan as any)?.attributes?.duration_unit}
+                  </div>
+                )}
+                {(userPlan as any)?.attributes?.start_date && (
+                  <div>
+                    <span className="text-gray-400">Period:</span>{' '}
+                    {new Date((userPlan as any)?.attributes?.start_date).toLocaleDateString()} - {new Date((userPlan as any)?.attributes?.end_date).toLocaleDateString()}
+                  </div>
+                )}
+              </div>
+
+              {(() => {
+                const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as string | undefined;
+                return slug && slug !== 'free' && slug !== 'bonus';
+              })() && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (!cancelSubLoading) handleCancelSubscription();
+                    }}
+                    className="text-red-400 hover:text-red-300 underline decoration-red-400/60 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    disabled={cancelSubLoading}
+                  >
+                    {cancelSubLoading ? 'Unsubscribing…' : 'Unsubscribe'}
+                  </button>
+                </div>
+              )}
+
+              {(() => {
+                const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as string | undefined;
+                return !slug || slug === 'free' || slug === 'bonus';
+              })() && (
+                <div className="pt-2">
+                  <Button
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => router.push('/plans?from=settings')}
+                  >
+                    Upgrade to Premium
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="ml-13 text-gray-300">No active subscription</p>
           )}
         </div>
 

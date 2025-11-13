@@ -11,6 +11,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import AgeTypeModal from '@/components/AgeTypesModal';
 import CreditsComponent from '@/components/CreditsComponent';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
 
 const getCharacters = async () => {
   try {
@@ -59,6 +61,8 @@ export default function HomePageComponent({ access_token }: Props) {
     setUser,
     addCharacter,
     characters,
+    plan,
+    userPlan,
   } = useUserStore();
   const router = useRouter();
 
@@ -306,6 +310,105 @@ export default function HomePageComponent({ access_token }: Props) {
               </div>
 
               <div className="flex items-center space-x-4">
+                {/* Plan badge and popover */}
+                {isLoggedIn && plan && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <h1 className="capitalize border rounded-lg flex items-center gap-1 px-3 py-1 font-semibold text-gray-100 cursor-pointer">
+                        {((plan as any)?.attributes?.name ?? (plan as any)?.data?.attributes?.name ?? 'Plan')}
+                      </h1>
+                    </PopoverTrigger>
+                    <PopoverContent className="border bg-gray-700 border-gray-400">
+                      <div className="space-y-3 text-white">
+                        <h3 className="text-xl font-semibold">
+                          {((plan as any)?.attributes?.name ?? (plan as any)?.data?.attributes?.name ?? 'Plan')}
+                        </h3>
+                        {(((plan as any)?.attributes?.description) ?? ((plan as any)?.data?.attributes?.description)) && (
+                          <p className="text-sm whitespace-pre-wrap">
+                            {((plan as any)?.attributes?.description ?? (plan as any)?.data?.attributes?.description)}
+                          </p>
+                        )}
+                        <div className="text-sm space-y-1">
+                          {((((plan as any)?.attributes?.price) ?? ((plan as any)?.data?.attributes?.price)) !== undefined) && (
+                            <div>
+                              <span className="text-gray-300">Price: </span>
+                              <span className="font-medium">
+                                {((plan as any)?.attributes?.price ?? (plan as any)?.data?.attributes?.price)}
+                              </span>
+                            </div>
+                          )}
+                          {(((plan as any)?.attributes?.duration) ?? ((plan as any)?.data?.attributes?.duration)) && (
+                            <div>
+                              <span className="text-gray-300">Duration: </span>
+                              <span className="font-medium">
+                                {((plan as any)?.attributes?.duration ?? (plan as any)?.data?.attributes?.duration)}{' '}
+                                {((plan as any)?.attributes?.duration_unit ?? (plan as any)?.data?.attributes?.duration_unit)}
+                              </span>
+                            </div>
+                          )}
+                          {(userPlan as any)?.attributes?.start_date && (
+                            (() => {
+                              const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as string | undefined;
+                              const start = new Date((userPlan as any).attributes.start_date);
+                              const end = new Date((userPlan as any).attributes.end_date);
+                              const isFreeOrBonus = slug === 'free' || slug === 'bonus';
+                              if (isFreeOrBonus) {
+                                return (
+                                  <div>
+                                    <span className="text-gray-300">Period: </span>
+                                    <span className="font-medium">
+                                      {start.toLocaleDateString()} - {end.toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                );
+                              }
+                              const nextCharge = new Date(end);
+                              nextCharge.setDate(nextCharge.getDate() + 1);
+                              return (
+                                <>
+                                  <div>
+                                    <span className="text-gray-300">Last paid on: </span>
+                                    <span className="font-medium">{start.toLocaleDateString()}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-300">Next charge date: </span>
+                                    <span className="font-medium">{nextCharge.toLocaleDateString()}</span>
+                                  </div>
+                                </>
+                              );
+                            })()
+                          )}
+                        </div>
+
+                        {(() => {
+                          const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as string | undefined;
+                          return slug && (slug === 'free' || slug === 'bonus');
+                        })() && (
+                          <div className="pt-2">
+                            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => router.push('/plans?from=home')}>
+                              Upgrade to Premium
+                            </Button>
+                          </div>
+                        )}
+
+                        {(() => {
+                          const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as string | undefined;
+                          return slug && slug !== 'free' && slug !== 'bonus';
+                        })() && (
+                          <div className="pt-2">
+                            <Button
+                              className="border border-emerald-500 text-emerald-400 hover:bg-emerald-500/10 bg-transparent"
+                              onClick={() => router.push('/credits?from=home')}
+                            >
+                              Buy credits
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+
                 {/* Credits Component */}
                 {isLoggedIn && <CreditsComponent />}
                 
