@@ -71,6 +71,9 @@ export default function ChatPage({ access_token }: Props) {
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const [highlightRelPrompt, setHighlightRelPrompt] = useState(false);
+  const inlineRelHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const relTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const {
     currentChat,
@@ -119,6 +122,22 @@ export default function ChatPage({ access_token }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { handleModerationFailure } = useModerationHandling();
+
+  const isChatReady = !!currentChat?.data?.id && !isCreatingChat;
+
+  const handlePromptRelationship = () => {
+    setHighlightRelPrompt(true);
+    if (inlineRelHeadingRef.current) {
+      inlineRelHeadingRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    } else {
+      // Try to open header relationship popover if possible
+      relTriggerRef.current?.click?.();
+    }
+    window.setTimeout(() => setHighlightRelPrompt(false), 1600);
+  };
 
   const sendMessage = async (message: Message, chatId: string) => {
     setInputMessage('');
@@ -622,35 +641,35 @@ export default function ChatPage({ access_token }: Props) {
   };
 
   const handleUserMessage = () => {
-    if (!inputMessage.trim() || isTyping || !currentChat?.data.id) return;
+    if (!isChatReady || !inputMessage.trim() || isTyping) return;
 
     const userMessage: Message = {
       role: 'user',
       content: inputMessage.trim(),
     };
 
-    updateChatHistory(userMessage, currentChat.data.id);
+    updateChatHistory(userMessage, currentChat!.data.id);
 
     setInputMessage('');
 
-    sendMessage(userMessage, currentChat.data.id);
+    sendMessage(userMessage, currentChat!.data.id);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (!inputMessage.trim() || isTyping || !currentChat?.data.id) return;
+      if (!isChatReady || !inputMessage.trim() || isTyping) return;
 
       const userMessage: Message = {
         role: 'user',
         content: inputMessage.trim(),
       };
 
-      updateChatHistory(userMessage, currentChat.data.id);
+      updateChatHistory(userMessage, currentChat!.data.id);
 
       setInputMessage('');
 
-      sendMessage(userMessage, currentChat.data.id);
+      sendMessage(userMessage, currentChat!.data.id);
     }
   };
 
@@ -853,6 +872,7 @@ export default function ChatPage({ access_token }: Props) {
                         <Button
                           disabled={!currentChat}
                           className="text-lg flex items-center font-semibold capitalize text-gray-100 cursor-pointer"
+                          ref={relTriggerRef}
                         >
                           <span className="font-bold">
                             {character?.attributes?.name}
@@ -870,7 +890,13 @@ export default function ChatPage({ access_token }: Props) {
 
                   <PopoverContent className="border bg-gray-700 border-gray-400">
                     <div className="space-y-4">
-                      <h3 className="text-xl font-semibold text-white">
+                      <h3
+                        className={`text-xl font-semibold text-white ${
+                          highlightRelPrompt
+                            ? 'ring-2 ring-emerald-400 rounded-md animate-pulse'
+                            : ''
+                        }`}
+                      >
                         Choose a relationship
                       </h3>
                       <div className="flex flex-wrap justify-self-auto gap-2 text-sm">
@@ -1079,7 +1105,14 @@ export default function ChatPage({ access_token }: Props) {
 
             {/* Relationship Selection */}
             <div className="mt-8 space-y-4">
-              <h3 className="text-xl font-semibold text-white">
+              <h3
+                ref={inlineRelHeadingRef}
+                className={`text-xl font-semibold text-white ${
+                  highlightRelPrompt
+                    ? 'ring-2 ring-emerald-400 rounded-md animate-pulse'
+                    : ''
+                }`}
+              >
                 Choose a relationship
               </h3>
               <div className="flex flex-wrap justify-center gap-2">
@@ -1350,12 +1383,20 @@ export default function ChatPage({ access_token }: Props) {
             </div>
           )}
 
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-3xl mx-auto relative">
+            {!isChatReady && (
+              <button
+                type="button"
+                aria-label="Choose a relationship first"
+                onClick={handlePromptRelationship}
+                className="absolute inset-0 z-10 bg-transparent cursor-not-allowed"
+              />
+            )}
             <div className="flex items-center space-x-3">
               {/* Voice Recording Button */}
               <button
                 onClick={isRecording ? stopRecording : startRecording}
-                disabled={isTranscribing}
+                disabled={!isChatReady || isTranscribing}
                 className={`flex-shrink-0 p-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   isRecording
                     ? 'bg-red-500 text-white animate-pulse'
@@ -1386,7 +1427,7 @@ export default function ChatPage({ access_token }: Props) {
                       ? 'Transcribing audio...'
                       : 'Type a message...'
                   }
-                  disabled={isRecording || isTranscribing}
+                  disabled={!isChatReady || isRecording || isTranscribing}
                   className="w-full p-3 text-lg pr-12 border border-gray-600 rounded-xl bg-zinc-800 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none disabled:opacity-50 disabled:cursor-not-allowed max-h-32"
                   rows={1}
                 />
@@ -1396,6 +1437,7 @@ export default function ChatPage({ access_token }: Props) {
               <Button
                 onClick={handleUserMessage}
                 disabled={
+                  !isChatReady ||
                   !inputMessage.trim() ||
                   isTyping ||
                   isRecording ||
