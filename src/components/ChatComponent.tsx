@@ -66,6 +66,7 @@ export default function ChatPage({ access_token }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
+  const [viewportWidth, setViewportWidth] = useState(0);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [relationshipTypes, setRelationshipTypes] = useState<string[]>([]);
   const [selectedRelationship, setSelectedRelationship] = useState<string>('');
@@ -100,6 +101,7 @@ export default function ChatPage({ access_token }: Props) {
     const checkMobile = () => {
       const isMobileDevice = window.innerWidth < 768;
       setIsMobile(isMobileDevice);
+      setViewportWidth(window.innerWidth);
       if (isMobileDevice) {
         setSidebarOpen(false);
         setIsRightSidebarOpen(false);
@@ -864,7 +866,17 @@ export default function ChatPage({ access_token }: Props) {
 
       <div className="flex-1 flex flex-col bg-gray-800 overflow-x-hidden">
         <div className="border-b border-gray-700 p-4 overflow-x-hidden">
-          <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between pl-12 pr-12">
+          {/*
+            Compact header only when the right sidebar is open AND the viewport is narrower than 1280px.
+            This avoids stacking on wide desktops where there is enough space.
+          */}
+          <div
+            className={`relative flex flex-col gap-3 ${
+              isRightSidebarOpen && viewportWidth < 1280
+                ? ''
+                : 'lg:flex-row lg:items-center lg:justify-between'
+            } pl-12 pr-12`}
+          >
             {/* Mobile sidebar toggles pinned to corners */}
             {!sidebarOpen && (
               <button
