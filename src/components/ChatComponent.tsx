@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
+  ArrowRight,
   Mic,
   Send,
   Volume2,
@@ -873,12 +874,14 @@ export default function ChatPage({ access_token }: Props) {
                 <MessageSquare className="w-5 h-5" />
               </button>
             )}
-            <button
-              onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
-              className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
-            >
-              <PanelRight className="w-5 h-5" />
-            </button>
+            {!isRightSidebarOpen && (
+              <button
+                onClick={() => setIsRightSidebarOpen(true)}
+                className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                <PanelRight className="w-5 h-5" />
+              </button>
+            )}
             {/* Left utility (sidebar toggle) */}
             <div className="hidden lg:order-1"></div>
 
@@ -1565,7 +1568,7 @@ export default function ChatPage({ access_token }: Props) {
         className={`
         ${isMobile ? 'fixed right-0 top-0 h-full z-50' : 'relative'}
         ${isRightSidebarOpen ? (isMobile ? 'w-80' : 'w-72') : 'w-0'} 
-        transition-all duration-300 bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden
+        transition-all duration-300 bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden relative
         ${
           isMobile && !isRightSidebarOpen ? 'translate-x-full' : 'translate-x-0'
         }
@@ -1573,6 +1576,13 @@ export default function ChatPage({ access_token }: Props) {
       >
         {isRightSidebarOpen && character && (
           <div>
+            <button
+              onClick={() => setIsRightSidebarOpen(false)}
+              className="absolute top-2 left-2 z-50 p-2 rounded-lg bg-gray-900/60 text-gray-200 hover:bg-gray-900 transition-colors shadow-sm"
+              aria-label="Close details"
+            >
+              <ArrowRight className="w-5 h-5" />
+            </button>
             <Carousel>
               <CarouselContent className="h-[400px]">
                 {character?.relationships?.images?.map((item, key) => {
