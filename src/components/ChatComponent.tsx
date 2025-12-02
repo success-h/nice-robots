@@ -807,18 +807,27 @@ export default function ChatPage({ access_token }: Props) {
         ${isMobile && !sidebarOpen ? 'translate-x-full' : 'translate-x-0'}
       `}
       >
-        <div className="p-3 border-b border-gray-700 py-4">
+        <div className="relative p-3 border-b border-gray-700 py-4">
           <Link
             href={'/'}
             onClick={() => {
               setCurrentChat(null);
               updateCharacterVideoPlayed(character?.id!);
             }}
-            className="flex items-center w-full p-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-colors"
+            className="flex items-center w-full p-2 pr-10 text-gray-200 hover:bg-gray-700 rounded-lg transition-colors"
           >
             <Plus className="w-4 h-4 mr-2" />
             <span className="text-sm font-medium">New chat</span>
           </Link>
+          {sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
+              aria-label="Close sidebar"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         <ChatList
@@ -856,16 +865,14 @@ export default function ChatPage({ access_token }: Props) {
         <div className="border-b border-gray-700 p-4">
           <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between pl-12 pr-12">
             {/* Mobile sidebar toggles pinned to corners */}
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="absolute top-2 left-2 p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
-            >
-              {sidebarOpen ? (
-                <ArrowLeft className="w-5 h-5" />
-              ) : (
+            {!sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="absolute top-2 left-2 p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
+              >
                 <MessageSquare className="w-5 h-5" />
-              )}
-            </button>
+              </button>
+            )}
             <button
               onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
               className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
