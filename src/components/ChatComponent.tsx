@@ -804,10 +804,10 @@ export default function ChatPage({ access_token }: Props) {
       {/* Sidebar */}
       <div
         className={`
-        ${isMobile ? 'fixed left-0 top-0 h-full z-50' : 'relative'}
+        ${isMobile ? 'fixed left-0 top-0 h-full z-[60]' : 'relative'}
         ${sidebarOpen ? (isMobile ? 'w-80' : 'w-64') : 'w-0'} 
         transition-all duration-300 bg-gray-900 border-r border-gray-700 flex flex-col overflow-hidden
-        ${isMobile && !sidebarOpen ? 'translate-x-full' : 'translate-x-0'}
+        ${isMobile && !sidebarOpen ? '-translate-x-full pointer-events-none' : 'translate-x-0 pointer-events-auto'}
       `}
       >
         <div className="relative p-3 border-b border-gray-700 py-4">
@@ -1578,7 +1578,7 @@ export default function ChatPage({ access_token }: Props) {
       </div>
       <div
         className={`
-        ${isMobile ? 'fixed right-0 top-0 h-full z-50' : 'relative'}
+        ${isMobile ? 'fixed right-0 top-0 h-full z-[60]' : 'relative'}
         ${isRightSidebarOpen ? (isMobile ? 'w-80' : 'w-72') : 'w-0'} 
         transition-all duration-300 bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden relative
         ${
