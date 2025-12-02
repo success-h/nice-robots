@@ -1410,7 +1410,7 @@ export default function ChatPage({ access_token }: Props) {
             </div>
           )}
 
-          <div className="max-w-3xl mx-auto relative">
+          <div className="max-w-3xl mx-auto relative p-4">
             {!isChatReady && (
               <button
                 type="button"
@@ -1419,7 +1419,7 @@ export default function ChatPage({ access_token }: Props) {
                 className="absolute inset-0 z-10 bg-transparent cursor-not-allowed"
               />
             )}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center justify-center gap-3">
               {/* Voice Recording Button */}
               <button
                 onClick={isRecording ? stopRecording : startRecording}
@@ -1441,7 +1441,7 @@ export default function ChatPage({ access_token }: Props) {
                 )}
               </button>
 
-              <div className="flex-1 relative">
+              <div className="relative w-full max-w-[680px] mx-auto">
                 <textarea
                   ref={textareaRef}
                   value={inputMessage}
@@ -1455,7 +1455,7 @@ export default function ChatPage({ access_token }: Props) {
                       : 'Type a message...'
                   }
                   disabled={!isChatReady || isRecording || isTranscribing}
-                  className="w-full p-3 text-lg pr-12 border border-gray-600 rounded-xl bg-zinc-800 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none disabled:opacity-50 disabled:cursor-not-allowed max-h-32"
+                  className="w-full p-3 text-lg lg:pr-12 border border-gray-600 rounded-xl bg-zinc-800 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none disabled:opacity-50 disabled:cursor-not-allowed max-h-32"
                   rows={1}
                 />
               </div>
