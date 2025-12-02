@@ -783,7 +783,7 @@ export default function ChatPage({ access_token }: Props) {
   }, []);
 
   return (
-    <div className="flex h-screen bg-gray-900">
+    <div className="flex h-screen bg-gray-900 overflow-x-hidden">
       {isMobile && sidebarOpen && (
         <div
           className="fixed inset-0 bg-black opacity-50 z-40 md:hidden"
@@ -861,8 +861,8 @@ export default function ChatPage({ access_token }: Props) {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col bg-gray-800">
-        <div className="border-b border-gray-700 p-4">
+      <div className="flex-1 flex flex-col bg-gray-800 overflow-x-hidden">
+        <div className="border-b border-gray-700 p-4 overflow-x-hidden">
           <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between pl-12 pr-12">
             {/* Mobile sidebar toggles pinned to corners */}
             {!sidebarOpen && (
@@ -1146,18 +1146,18 @@ export default function ChatPage({ access_token }: Props) {
             </div>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {isLoading ? (
             <div className="h-full flex items-center justify-center">
               <Loader2 className="h-10 w-10 m-auto animate-spin text-pink-500" />
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto p-4 space-y-4">
+            <div className="max-w-3xl mx-auto p-4 space-y-4 overflow-x-hidden">
               {currentChat?.chatHistory?.map((message, index) => {
                 return (
                   <div key={index} className="group">
                     <div
-                      className={`flex items-start space-x-3 ${
+                      className={`flex items-start space-x-3 w-full overflow-x-hidden ${
                         message.role === 'user'
                           ? 'flex-row-reverse space-x-reverse'
                           : ''
@@ -1207,7 +1207,7 @@ export default function ChatPage({ access_token }: Props) {
                             </video>
                           </div>
                         ) : (
-                          <div className={`relative inline-block`}>
+                          <div className={`relative inline-block max-w-full`}>
                             <div
                               className={`inline-block p-3 rounded-lg ${
                                 message.role === 'user'
@@ -1221,7 +1221,7 @@ export default function ChatPage({ access_token }: Props) {
                                 (item, contentIndex) => {
                                   if (item.type === 'code') {
                                     return (
-                                      <div key={contentIndex} dir="ltr" style={{ textAlign: 'left' }}>
+                                      <div key={contentIndex} dir="ltr" style={{ textAlign: 'left', maxWidth: '100%' }}>
                                         <SyntaxHighlighter
                                           language="python"
                                           style={oneDark}
@@ -1229,7 +1229,12 @@ export default function ChatPage({ access_token }: Props) {
                                             borderRadius: '0.5rem',
                                             marginBottom: '0.75rem',
                                             marginTop: '0.75rem',
+                                            maxWidth: '100%',
+                                            overflowX: 'auto',
+                                            whiteSpace: 'pre-wrap',
+                                            wordBreak: 'break-word',
                                           }}
+                                          wrapLongLines
                                         >
                                           {item.value}
                                         </SyntaxHighlighter>
@@ -1239,7 +1244,7 @@ export default function ChatPage({ access_token }: Props) {
                                     return (
                                       <div
                                         key={contentIndex}
-                                        className={`message-bubble whitespace-pre-wrap ${
+                                        className={`message-bubble whitespace-pre-wrap break-words max-w-full ${
                                           message.isBouncyEmoji &&
                                           contentIndex === 0
                                             ? 'bounce-effect text-4xl'
@@ -1254,7 +1259,7 @@ export default function ChatPage({ access_token }: Props) {
                                   } else if (item.type === 'text') {
                                     const textClasses = message.isBouncyEmoji
                                       ? 'bounce-effect text-4xl'
-                                      : 'text-sm whitespace-pre-wrap';
+                                      : 'text-sm whitespace-pre-wrap break-words max-w-full';
                                     return (
                                       <div
                                         key={contentIndex}
@@ -1270,7 +1275,7 @@ export default function ChatPage({ access_token }: Props) {
                               )
                             ) : (
                               <div
-                                className={`message-bubble whitespace-pre-wrap ${
+                                className={`message-bubble whitespace-pre-wrap break-words max-w-full ${
                                   message.isBouncyEmoji
                                     ? 'bounce-effect text-4xl'
                                     : 'text-sm'
