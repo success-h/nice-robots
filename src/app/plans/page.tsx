@@ -239,8 +239,7 @@ export default function PlansPage() {
             <div className="rounded-xl p-4 bg-gray-800/60 border border-gray-700">
               <ul className="space-y-3 text-sm">
                 {[
-                  'Create your own AI friends',
-                  'Unlimited text and voice messages',
+                  'Text and voice messages',
                   '100 credits per month',
                   'No expiry on credits',
                   'Priority response speed',
