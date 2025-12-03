@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
+  ArrowRight,
   Mic,
   Send,
   Volume2,
@@ -65,6 +66,7 @@ export default function ChatPage({ access_token }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
+  const [viewportWidth, setViewportWidth] = useState(0);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [relationshipTypes, setRelationshipTypes] = useState<string[]>([]);
   const [selectedRelationship, setSelectedRelationship] = useState<string>('');
@@ -99,6 +101,7 @@ export default function ChatPage({ access_token }: Props) {
     const checkMobile = () => {
       const isMobileDevice = window.innerWidth < 768;
       setIsMobile(isMobileDevice);
+      setViewportWidth(window.innerWidth);
       if (isMobileDevice) {
         setSidebarOpen(false);
         setIsRightSidebarOpen(false);
@@ -783,7 +786,7 @@ export default function ChatPage({ access_token }: Props) {
   }, []);
 
   return (
-    <div className="flex h-screen bg-gray-900">
+    <div className="flex h-screen bg-gray-900 overflow-x-hidden">
       {isMobile && sidebarOpen && (
         <div
           className="fixed inset-0 bg-black opacity-50 z-40 md:hidden"
@@ -801,24 +804,33 @@ export default function ChatPage({ access_token }: Props) {
       {/* Sidebar */}
       <div
         className={`
-        ${isMobile ? 'fixed left-0 top-0 h-full z-50' : 'relative'}
+        ${isMobile ? 'fixed left-0 top-0 h-full z-[60]' : 'relative'}
         ${sidebarOpen ? (isMobile ? 'w-80' : 'w-64') : 'w-0'} 
         transition-all duration-300 bg-gray-900 border-r border-gray-700 flex flex-col overflow-hidden
-        ${isMobile && !sidebarOpen ? 'translate-x-full' : 'translate-x-0'}
+        ${isMobile && !sidebarOpen ? '-translate-x-full pointer-events-none' : 'translate-x-0 pointer-events-auto'}
       `}
       >
-        <div className="p-3 border-b border-gray-700 py-4">
+        <div className="relative p-3 border-b border-gray-700 py-4">
           <Link
             href={'/'}
             onClick={() => {
               setCurrentChat(null);
               updateCharacterVideoPlayed(character?.id!);
             }}
-            className="flex items-center w-full p-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-colors"
+            className="flex items-center w-full p-2 pr-10 text-gray-200 hover:bg-gray-700 rounded-lg transition-colors"
           >
             <Plus className="w-4 h-4 mr-2" />
             <span className="text-sm font-medium">New chat</span>
           </Link>
+          {sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
+              aria-label="Close sidebar"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         <ChatList
@@ -852,85 +864,41 @@ export default function ChatPage({ access_token }: Props) {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col bg-gray-800">
-        <div className="border-b border-gray-700 p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:space-x-3">
-              {!sidebarOpen && (
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="p-2 cursor-pointer text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
-                >
-                  <MessageSquare className="w-5 h-5" />
-                </button>
-              )}
-              <div className="flex items-center gap-x-1">
-                <Popover>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <PopoverTrigger asChild>
-                        <Button
-                          disabled={!currentChat}
-                          className="text-lg flex items-center font-semibold capitalize text-gray-100 cursor-pointer"
-                          ref={relTriggerRef}
-                        >
-                          <span className="font-bold">
-                            {character?.attributes?.name}
-                          </span>
-                          {currentChat?.data?.attributes?.relationship_type &&
-                            ` (${currentChat?.data?.attributes?.relationship_type})`}{' '}
-                          <div className="h-3 w-3 bg-green-500 rounded-full"></div>
-                        </Button>
-                      </PopoverTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Change relationship</p>
-                    </TooltipContent>
-                  </Tooltip>
+      <div className="flex-1 flex flex-col bg-gray-800 overflow-x-hidden">
+        <div className="border-b border-gray-700 p-4 overflow-x-hidden">
+          {/*
+            Compact header only when the right sidebar is open AND the viewport is narrower than 1280px.
+            This avoids stacking on wide desktops where there is enough space.
+          */}
+          <div
+            className={`relative flex flex-col gap-3 ${
+              isRightSidebarOpen && viewportWidth < 1280
+                ? ''
+                : 'lg:flex-row lg:items-center lg:justify-between'
+            } pl-12 pr-12`}
+          >
+            {/* Mobile sidebar toggles pinned to corners */}
+            {!sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="absolute top-2 left-2 p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                <MessageSquare className="w-5 h-5" />
+              </button>
+            )}
+            {!isRightSidebarOpen && (
+              <button
+                onClick={() => setIsRightSidebarOpen(true)}
+                className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                <PanelRight className="w-5 h-5" />
+              </button>
+            )}
+            {/* Left utility (sidebar toggle) */}
+            <div className="hidden lg:order-1"></div>
 
-                  <PopoverContent className="border bg-gray-700 border-gray-400">
-                    <div className="space-y-4">
-                      <h3
-                        className={`text-xl font-semibold text-white ${
-                          highlightRelPrompt
-                            ? 'ring-2 ring-emerald-400 rounded-md animate-pulse'
-                            : ''
-                        }`}
-                      >
-                        Choose a relationship
-                      </h3>
-                      <div className="flex flex-wrap justify-self-auto gap-2 text-sm">
-                        {relationshipTypes.map((type) => {
-                          const isCurrent =
-                            currentChat?.data?.attributes?.relationship_type === type;
-                          const isSelected = selectedRelationship === type || isCurrent;
-                          return (
-                            <Button
-                              key={type}
-                              variant={isSelected ? 'default' : 'outline'}
-                              className={`text-white capitalize border-white bg-transparent ${
-                                isSelected && 'border bg-black/60 text-white'
-                              }`}
-                              onClick={() => {
-                                if (!isCurrent) handleRelationshipChange(type);
-                              }}
-                              disabled={isCreatingChat || isCurrent}
-                            >
-                              {isCreatingChat && isSelected && (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              )}
-                              {type}
-                            </Button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-5">
+            {/* Plan/Credits/Response type and sidebar buttons */}
+            <div className="flex flex-col items-start gap-2 lg:flex-row lg:items-center lg:space-x-5 lg:order-2">
               {isLoggedIn && plan && (
                 <Popover>
                   <PopoverTrigger asChild>
@@ -1071,20 +1039,74 @@ export default function ChatPage({ access_token }: Props) {
                 </PopoverContent>
               </Popover>
 
-              {sidebarOpen && (
-                <Button
-                  onClick={() => setSidebarOpen(false)}
-                  className="p-2 text-gray-400 hover:text-gray-200 rounded-lg border bg-transparent transition-colors"
-                >
-                  <ArrowLeft className="w-5 h-5 text-white" />
-                </Button>
-              )}
-              <button
-                onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
-                className="p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
-              >
-                <PanelRight className="w-5 h-5" />
-              </button>
+              {/* Inline sidebar toggles hidden globally to keep corner icons exclusive */}
+              <div className="hidden" />
+            </div>
+
+            {/* Relationship selector - placed last on mobile for visibility */}
+            <div className="flex items-center gap-x-1 lg:order-3 order-last">
+              <Popover>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      <Button
+                        disabled={!currentChat}
+                        className="text-lg flex items-center font-semibold capitalize text-gray-100 cursor-pointer"
+                        ref={relTriggerRef}
+                      >
+                        <span className="font-bold">
+                          {character?.attributes?.name}
+                        </span>
+                        {currentChat?.data?.attributes?.relationship_type &&
+                          ` (${currentChat?.data?.attributes?.relationship_type})`}{' '}
+                        <div className="h-3 w-3 bg-green-500 rounded-full"></div>
+                      </Button>
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Change relationship</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                <PopoverContent className="border bg-gray-700 border-gray-400">
+                  <div className="space-y-4">
+                    <h3
+                      className={`text-xl font-semibold text-white ${
+                        highlightRelPrompt
+                          ? 'ring-2 ring-emerald-400 rounded-md animate-pulse'
+                          : ''
+                      }`}
+                    >
+                      Choose a relationship
+                    </h3>
+                    <div className="flex flex-wrap justify-self-auto gap-2 text-sm">
+                      {relationshipTypes.map((type) => {
+                        const isCurrent =
+                          currentChat?.data?.attributes?.relationship_type === type;
+                        const isSelected = selectedRelationship === type || isCurrent;
+                        return (
+                          <Button
+                            key={type}
+                            variant={isSelected ? 'default' : 'outline'}
+                            className={`text-white capitalize border-white bg-transparent ${
+                              isSelected && 'border bg-black/60 text-white'
+                            }`}
+                            onClick={() => {
+                              if (!isCurrent) handleRelationshipChange(type);
+                            }}
+                            disabled={isCreatingChat || isCurrent}
+                          >
+                            {isCreatingChat && isSelected && (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
+                            {type}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </div>
@@ -1139,18 +1161,18 @@ export default function ChatPage({ access_token }: Props) {
             </div>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {isLoading ? (
             <div className="h-full flex items-center justify-center">
               <Loader2 className="h-10 w-10 m-auto animate-spin text-pink-500" />
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto p-4 space-y-4">
+            <div className="max-w-3xl mx-auto p-4 space-y-4 overflow-x-hidden">
               {currentChat?.chatHistory?.map((message, index) => {
                 return (
                   <div key={index} className="group">
                     <div
-                      className={`flex items-start space-x-3 ${
+                      className={`flex items-start space-x-3 w-full overflow-x-hidden ${
                         message.role === 'user'
                           ? 'flex-row-reverse space-x-reverse'
                           : ''
@@ -1200,7 +1222,7 @@ export default function ChatPage({ access_token }: Props) {
                             </video>
                           </div>
                         ) : (
-                          <div className={`relative inline-block`}>
+                          <div className={`relative inline-block max-w-full`}>
                             <div
                               className={`inline-block p-3 rounded-lg ${
                                 message.role === 'user'
@@ -1214,7 +1236,7 @@ export default function ChatPage({ access_token }: Props) {
                                 (item, contentIndex) => {
                                   if (item.type === 'code') {
                                     return (
-                                      <div key={contentIndex} dir="ltr" style={{ textAlign: 'left' }}>
+                                      <div key={contentIndex} dir="ltr" style={{ textAlign: 'left', maxWidth: '100%' }}>
                                         <SyntaxHighlighter
                                           language="python"
                                           style={oneDark}
@@ -1222,7 +1244,12 @@ export default function ChatPage({ access_token }: Props) {
                                             borderRadius: '0.5rem',
                                             marginBottom: '0.75rem',
                                             marginTop: '0.75rem',
+                                            maxWidth: '100%',
+                                            overflowX: 'auto',
+                                            whiteSpace: 'pre-wrap',
+                                            wordBreak: 'break-word',
                                           }}
+                                          wrapLongLines
                                         >
                                           {item.value}
                                         </SyntaxHighlighter>
@@ -1232,7 +1259,7 @@ export default function ChatPage({ access_token }: Props) {
                                     return (
                                       <div
                                         key={contentIndex}
-                                        className={`message-bubble whitespace-pre-wrap ${
+                                        className={`message-bubble whitespace-pre-wrap break-words max-w-full ${
                                           message.isBouncyEmoji &&
                                           contentIndex === 0
                                             ? 'bounce-effect text-4xl'
@@ -1247,7 +1274,7 @@ export default function ChatPage({ access_token }: Props) {
                                   } else if (item.type === 'text') {
                                     const textClasses = message.isBouncyEmoji
                                       ? 'bounce-effect text-4xl'
-                                      : 'text-sm whitespace-pre-wrap';
+                                      : 'text-sm whitespace-pre-wrap break-words max-w-full';
                                     return (
                                       <div
                                         key={contentIndex}
@@ -1263,7 +1290,7 @@ export default function ChatPage({ access_token }: Props) {
                               )
                             ) : (
                               <div
-                                className={`message-bubble whitespace-pre-wrap ${
+                                className={`message-bubble whitespace-pre-wrap break-words max-w-full ${
                                   message.isBouncyEmoji
                                     ? 'bounce-effect text-4xl'
                                     : 'text-sm'
@@ -1383,7 +1410,7 @@ export default function ChatPage({ access_token }: Props) {
             </div>
           )}
 
-          <div className="max-w-3xl mx-auto relative">
+          <div className="max-w-3xl mx-auto relative p-4">
             {!isChatReady && (
               <button
                 type="button"
@@ -1392,12 +1419,12 @@ export default function ChatPage({ access_token }: Props) {
                 className="absolute inset-0 z-10 bg-transparent cursor-not-allowed"
               />
             )}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center justify-center gap-3">
               {/* Voice Recording Button */}
               <button
                 onClick={isRecording ? stopRecording : startRecording}
                 disabled={!isChatReady || isTranscribing}
-                className={`flex-shrink-0 p-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`hidden lg:inline-flex flex-shrink-0 p-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   isRecording
                     ? 'bg-red-500 text-white animate-pulse'
                     : isTranscribing
@@ -1414,7 +1441,7 @@ export default function ChatPage({ access_token }: Props) {
                 )}
               </button>
 
-              <div className="flex-1 relative">
+              <div className="relative w-full max-w-[680px] mx-auto">
                 <textarea
                   ref={textareaRef}
                   value={inputMessage}
@@ -1428,7 +1455,7 @@ export default function ChatPage({ access_token }: Props) {
                       : 'Type a message...'
                   }
                   disabled={!isChatReady || isRecording || isTranscribing}
-                  className="w-full p-3 text-lg pr-12 border border-gray-600 rounded-xl bg-zinc-800 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none disabled:opacity-50 disabled:cursor-not-allowed max-h-32"
+                  className="w-full p-3 text-lg lg:pr-12 border border-gray-600 rounded-xl bg-zinc-800 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none disabled:opacity-50 disabled:cursor-not-allowed max-h-32"
                   rows={1}
                 />
               </div>
@@ -1443,15 +1470,83 @@ export default function ChatPage({ access_token }: Props) {
                   isRecording ||
                   isTranscribing
                 }
-                className="flex-shrink-0 p-3 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                className="hidden lg:inline-flex flex-shrink-0 p-3 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
               >
                 <Send className="w-5 h-5" />
               </Button>
             </div>
 
+            {/* Mobile compose bar (mic + send below textarea) */}
+            {!isTyping && !isSpeaking && (
+              <div className="lg:hidden mt-3 flex items-center justify-center gap-4">
+                <button
+                  onClick={isRecording ? stopRecording : startRecording}
+                  disabled={!isChatReady || isTranscribing}
+                  className={`flex-shrink-0 p-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isRecording
+                      ? 'bg-red-500 text-white animate-pulse'
+                      : isTranscribing
+                      ? 'bg-yellow-500 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {isRecording ? (
+                    <Square className="w-5 h-5" />
+                  ) : isTranscribing ? (
+                    <div className="w-5 h-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    <Mic className="w-5 h-5" />
+                  )}
+                </button>
+                <Button
+                  onClick={handleUserMessage}
+                  disabled={
+                    !isChatReady ||
+                    !inputMessage.trim() ||
+                    isTyping ||
+                    isRecording ||
+                    isTranscribing
+                  }
+                  className="flex-shrink-0 p-3 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Send className="w-5 h-5" />
+                </Button>
+              </div>
+            )}
+
             {/* Control Buttons */}
             {(isTyping || isSpeaking) && (
-              <div className="flex justify-center mt-3 space-x-2">
+              <div className="hidden lg:flex justify-center mt-3 space-x-2">
+                {isSpeaking && (
+                  <button
+                    onClick={toggleMute}
+                    className="px-3 py-1 bg-gray-700 text-gray-300 rounded-lg text-sm hover:bg-gray-600 transition-colors flex items-center space-x-1"
+                  >
+                    {isMuted ? (
+                      <VolumeX className="w-4 h-4" />
+                    ) : (
+                      <Volume2 className="w-4 h-4" />
+                    )}
+                    <span>{isMuted ? 'Unmute' : 'Mute'}</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setIsTyping(false);
+                    setIsSpeaking(false);
+                    stopResponse();
+                  }}
+                  className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-colors flex items-center space-x-1"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Stop</span>
+                </button>
+              </div>
+            )}
+
+            {/* Mobile interrupt bar */}
+            {(isTyping || isSpeaking) && (
+              <div className="lg:hidden mt-3 flex items-center justify-center gap-2">
                 {isSpeaking && (
                   <button
                     onClick={toggleMute}
@@ -1483,9 +1578,9 @@ export default function ChatPage({ access_token }: Props) {
       </div>
       <div
         className={`
-        ${isMobile ? 'fixed right-0 top-0 h-full z-50' : 'relative'}
+        ${isMobile ? 'fixed right-0 top-0 h-full z-[60]' : 'relative'}
         ${isRightSidebarOpen ? (isMobile ? 'w-80' : 'w-72') : 'w-0'} 
-        transition-all duration-300 bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden
+        transition-all duration-300 bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden relative
         ${
           isMobile && !isRightSidebarOpen ? 'translate-x-full' : 'translate-x-0'
         }
@@ -1493,6 +1588,13 @@ export default function ChatPage({ access_token }: Props) {
       >
         {isRightSidebarOpen && character && (
           <div>
+            <button
+              onClick={() => setIsRightSidebarOpen(false)}
+              className="absolute top-2 left-2 z-50 p-2 rounded-lg bg-gray-900/60 text-gray-200 hover:bg-gray-900 transition-colors shadow-sm"
+              aria-label="Close details"
+            >
+              <ArrowRight className="w-5 h-5" />
+            </button>
             <Carousel>
               <CarouselContent className="h-[400px]">
                 {character?.relationships?.images?.map((item, key) => {
