@@ -8,15 +8,16 @@ export const useApi = async (
 ) => {
   const withBaseUrl = `${BACKEND_URL}${url}`;
 
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${access_token}`,
-  };
+  const headers: Record<string, string> = {};
+  
+  if (access_token) {
+    headers.Authorization = `Bearer ${access_token}`;
+  }
 
   if (
     options.body &&
     !(options.body instanceof FormData) &&
-    //@ts-expect-error error
-    !options?.headers?.['Content-Type']
+    !(options.headers && 'Content-Type' in options.headers)
   ) {
     headers['Content-Type'] = 'application/json';
   }

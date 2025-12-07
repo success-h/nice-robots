@@ -72,74 +72,78 @@ export default function SignInModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px] p-6 text-center bg-gray-900">
+      <DialogContent className="sm:max-w-[425px] p-4 sm:p-6 text-center bg-white">
         {/* Header */}
-        <DialogHeader className="space-y-4">
-          <div className="mx-auto w-16 h-16 bg-pink-500 rounded-full flex items-center justify-center text-white">
-            <Sparkles className="h-8 w-8" />
+        <DialogHeader className="space-y-3 sm:space-y-4">
+          <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center text-white shadow-lg">
+            <Sparkles className="h-6 w-6 sm:h-8 sm:w-8" />
           </div>
-          <DialogTitle className="text-3xl text-pink-500 text-center">
+          <DialogTitle className="text-2xl sm:text-3xl text-slate-900 text-center font-bold">
             {isSignUp ? 'Create Account' : 'Welcome Back'}
           </DialogTitle>
-          <DialogDescription className="text-center">
+          <DialogDescription className="text-center text-slate-600 text-sm sm:text-base">
             {isSignUp
-              ? 'Join Teens Robots to start chatting'
+              ? 'Join Nice Buddies to start chatting'
               : 'Sign in to continue your conversations'}
           </DialogDescription>
         </DialogHeader>
         {/* Body */}
-        <div className="mt-6 space-y-4">
+        <div className="mt-4 sm:mt-6 space-y-4">
           {isLoading ? (
             <div className="flex items-center justify-center p-4">
-              <Loader2 className="mr-2 h-6 w-6 animate-spin text-pink-500" />
-              <span>{isSignUp ? 'Creating account...' : 'Signing in...'}</span>
+              <Loader2 className="mr-2 h-5 w-5 sm:h-6 sm:w-6 animate-spin text-pink-500" />
+              <span className="text-sm sm:text-base text-slate-700">
+                {isSignUp ? 'Creating account...' : 'Signing in...'}
+              </span>
             </div>
           ) : (
-            <div className="flex justify-center">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={handleGoogleError}
-                theme="filled_black"
-                size="large"
-                text={isSignUp ? 'signup_with' : 'signin_with'}
-                shape="rectangular"
-                width="300"
-              />
+            <div className="flex justify-center px-2">
+              <div className="w-full max-w-[300px]">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  theme="outline"
+                  size="large"
+                  text={isSignUp ? 'signup_with' : 'signin_with'}
+                  shape="rectangular"
+                  width="100%"
+                />
+              </div>
             </div>
           )}
 
           {/* Terms */}
-          <p className="text-xs text-center text-gray-500">
+          <p className="text-xs text-center text-slate-500 px-2">
             By continuing, you agree to our{' '}
-            <a href="#" className="text-pink-400 hover:underline">
+            <a href="#" className="text-pink-500 hover:text-pink-600 hover:underline">
               Terms of Service
             </a>{' '}
             and{' '}
-            <a href="#" className="text-pink-400 hover:underline">
+            <a href="#" className="text-pink-500 hover:text-pink-600 hover:underline">
               Privacy Policy
             </a>
           </p>
         </div>
         {/* Footer */}
-        <div className="text-center pt-4 border-t mt-4">
+        <div className="text-center pt-3 sm:pt-4 border-t border-slate-200 mt-4">
           {isSignUp ? (
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-slate-600">
               Already have an account?{' '}
               <Button
                 variant="link"
                 onClick={() => setIsSignUp(false)}
-                className="p-0 h-auto text-pink-400 hover:text-pink-300"
+                className="p-0 h-auto text-pink-500 hover:text-pink-600 font-semibold"
               >
                 Sign In
               </Button>
             </p>
           ) : (
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-slate-600">
               Don&apos;t have an account?{' '}
               <Button
                 variant="link"
                 onClick={() => setIsSignUp(true)}
-                className="p-0 h-auto text-pink-400 hover:text-pink-300"
+                className="p-0 h-auto text-pink-500 hover:text-pink-600 font-semibold"
               >
                 Create Account
               </Button>

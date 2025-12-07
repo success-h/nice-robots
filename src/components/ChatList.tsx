@@ -46,8 +46,8 @@ function ChatList({
   }, [chats]);
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="p-2 space-y-1">
+    <div className="flex-1 overflow-y-auto overscroll-contain">
+      <div className="p-2 sm:p-3 space-y-1.5 sm:space-y-2">
         {characters?.map((character: CharacterData) => {
           const isCurrentChat =
             currentChat?.data?.relationships?.character?.id === character?.id;
@@ -65,47 +65,54 @@ function ChatList({
                 setCharacter(character);
               }}
               className={cn(
-                'flex w-full cursor-pointer p-3 items-center text-left rounded-lg transition-colors group',
+                'flex w-full cursor-pointer p-2.5 sm:p-3 items-center text-left rounded-xl transition-all group shadow-sm hover:shadow-md active:scale-[0.98] touch-manipulation',
                 {
-                  'bg-gray-700 text-gray-100': isCurrentChat,
-                  'text-gray-300 hover:bg-gray-700': !isCurrentChat,
+                  'bg-gradient-to-r from-pink-50 to-purple-50 text-slate-900 border-2 border-pink-200':
+                    isCurrentChat,
+                  'text-slate-700 hover:bg-slate-50 border-2 border-transparent hover:border-slate-200':
+                    !isCurrentChat,
                 }
               )}
             >
-              <Image
-                src={character?.attributes?.avatar}
-                alt={character?.attributes.name}
-                width={32}
-                height={32}
-                className="rounded-full mr-3 flex-shrink-0"
-              />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full ring-2 ring-slate-200 overflow-hidden bg-gradient-to-br from-pink-100 to-purple-100 mr-2 sm:mr-3 flex-shrink-0">
+                <Image
+                  src={character?.attributes?.avatar}
+                  alt={character?.attributes.name}
+                  width={40}
+                  height={40}
+                  className="rounded-full w-full h-full object-cover"
+                />
+              </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
+                <p className="text-xs sm:text-sm font-semibold truncate text-slate-900">
                   {character?.attributes.name}
                 </p>
-                <p className="text-xs text-gray-400 truncate">
-                  {lastMessage?.slice(0, 30)}
-                  {lastMessage?.length > 30 ? '...' : ''}
+                <p className="text-[10px] sm:text-xs text-slate-500 truncate mt-0.5">
+                  {lastMessage?.slice(0, 25)}
+                  {lastMessage?.length > 25 ? '...' : ''}
                 </p>
               </div>
-              <div className="ml-2">
+              <div className="ml-1 sm:ml-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0">
                 <Dialog>
-                  <DialogTrigger className="cursor-pointer">
-                    <FiTrash />
+                  <DialogTrigger className="cursor-pointer p-2 rounded-lg hover:bg-red-50 active:bg-red-100 text-slate-400 hover:text-red-500 transition-colors touch-manipulation">
+                    <FiTrash className="w-4 h-4 sm:w-5 sm:h-5" />
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
                     <DialogHeader>
-                      <DialogTitle className="text-black">
+                      <DialogTitle className="text-slate-900 text-lg sm:text-xl">
                         Are you absolutely sure?
                       </DialogTitle>
-                      <DialogDescription>
+                      <DialogDescription className="text-slate-600 text-sm">
                         This action cannot be undone. This will permanently
                         delete your chat from our servers.
                       </DialogDescription>
                     </DialogHeader>
-                    <DialogFooter>
-                      <DialogClose>
-                        <Button variant={'outline'} className="text-black">
+                    <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+                      <DialogClose asChild>
+                        <Button 
+                          variant={'outline'} 
+                          className="w-full sm:w-auto text-slate-700 border-slate-300 hover:bg-slate-50"
+                        >
                           Cancel
                         </Button>
                       </DialogClose>
@@ -120,10 +127,11 @@ function ChatList({
                             character?.id
                           );
                         }}
-                        className="bg-red-500"
+                        disabled={deleteLoading}
+                        className="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white"
                       >
                         {deleteLoading && (
-                          <Loader2 className="mr-2 h-6 w-6 animate-spin text-pink-500" />
+                          <Loader2 className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                         )}
                         Yes, Delete chat
                       </Button>

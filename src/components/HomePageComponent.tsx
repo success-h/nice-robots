@@ -11,8 +11,23 @@ import Image from 'next/image';
 import Link from 'next/link';
 import AgeTypeModal from '@/components/AgeTypesModal';
 import CreditsComponent from '@/components/CreditsComponent';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  getPlanName,
+  getPlanDescription,
+  getPlanPrice,
+  getPlanDuration,
+  getPlanDurationUnit,
+  getPlanSlug,
+  isFreeOrBonusPlan,
+  getUserPlanAttributes,
+} from '@/utils/planHelpers';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 const getCharacters = async () => {
   try {
@@ -73,85 +88,98 @@ export default function HomePageComponent({ access_token }: Props) {
 
   // Reusable body for the plan popover (used on mobile and desktop)
   const PlanPopoverBody = () => (
-    <div className="space-y-3 text-white">
-      <h3 className="text-xl font-semibold">
-        {((plan as any)?.attributes?.name ?? (plan as any)?.data?.attributes?.name ?? 'Plan')}
-      </h3>
-      {(((plan as any)?.attributes?.description) ?? ((plan as any)?.data?.attributes?.description)) && (
-        <p className="text-sm whitespace-pre-wrap">
-          {((plan as any)?.attributes?.description ?? (plan as any)?.data?.attributes?.description)}
-        </p>
-      )}
-      <div className="text-sm space-y-1">
-        {((((plan as any)?.attributes?.price) ?? ((plan as any)?.data?.attributes?.price)) !== undefined) && (
-          <div>
-            <span className="text-gray-300">Price: </span>
-            <span className="font-medium">
-              {((plan as any)?.attributes?.price ?? (plan as any)?.data?.attributes?.price)}
-            </span>
-          </div>
-        )}
-        {(((plan as any)?.attributes?.duration) ?? ((plan as any)?.data?.attributes?.duration)) && (
-          <div>
-            <span className="text-gray-300">Duration: </span>
-            <span className="font-medium">
-              {((plan as any)?.attributes?.duration ?? (plan as any)?.data?.attributes?.duration)}{' '}
-              {((plan as any)?.attributes?.duration_unit ?? (plan as any)?.data?.attributes?.duration_unit)}
-            </span>
-          </div>
-        )}
-        {(userPlan as any)?.attributes?.start_date && (
-          (() => {
-            const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as string | undefined;
-            const start = new Date((userPlan as any).attributes.start_date);
-            const end = new Date((userPlan as any).attributes.end_date);
-            const isFreeOrBonus = slug === 'free' || slug === 'bonus';
-            if (isFreeOrBonus) {
-              return (
-                <div>
-                  <span className="text-gray-300">Period: </span>
-                  <span className="font-medium">
-                    {start.toLocaleDateString()} - {end.toLocaleDateString()}
-                  </span>
-                </div>
-              );
-            }
-            const nextCharge = new Date(end);
-            nextCharge.setDate(nextCharge.getDate() + 1);
-            return (
-              <>
-                <div>
-                  <span className="text-gray-300">Last paid on: </span>
-                  <span className="font-medium">{start.toLocaleDateString()}</span>
-                </div>
-                <div>
-                  <span className="text-gray-300">Next charge date: </span>
-                  <span className="font-medium">{nextCharge.toLocaleDateString()}</span>
-                </div>
-              </>
-            );
-          })()
+    <div className="space-y-5 text-slate-100">
+      {/* Header */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-gradient-to-r from-pink-500 to-purple-500"></div>
+          <h3 className="text-2xl font-bold text-white">{getPlanName(plan)}</h3>
+        </div>
+        {getPlanDescription(plan) && (
+          <p className="text-sm whitespace-pre-wrap text-slate-300 leading-relaxed pl-4">
+            {getPlanDescription(plan)}
+          </p>
         )}
       </div>
 
-      {(() => {
-        const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as string | undefined;
-        return slug && (slug === 'free' || slug === 'bonus');
-      })() && (
+      {/* Details Section */}
+      <div className="space-y-3 pt-4 border-t border-slate-700/50">
+        {getPlanPrice(plan) !== undefined && (
+          <div className="flex justify-between items-center py-1.5 px-2 rounded-lg bg-slate-700/30">
+            <span className="text-slate-400 text-sm">Price</span>
+            <span className="font-bold text-white text-base">
+              {getPlanPrice(plan)}
+            </span>
+          </div>
+        )}
+        {getPlanDuration(plan) && (
+          <div className="flex justify-between items-center py-1.5 px-2 rounded-lg bg-slate-700/30">
+            <span className="text-slate-400 text-sm">Duration</span>
+            <span className="font-bold text-white text-base">
+              {getPlanDuration(plan)} {getPlanDurationUnit(plan)}
+            </span>
+          </div>
+        )}
+        {(() => {
+          const userPlanAttrs = getUserPlanAttributes(userPlan);
+          if (!userPlanAttrs?.start_date || !userPlanAttrs?.end_date)
+            return null;
+
+          const slug = getPlanSlug(plan);
+          const start = new Date(userPlanAttrs.start_date);
+          const end = new Date(userPlanAttrs.end_date);
+          const isFreeOrBonus = slug === 'free' || slug === 'bonus';
+
+          if (isFreeOrBonus) {
+            return (
+              <div className="flex justify-between items-center py-1.5 px-2 rounded-lg bg-slate-700/30">
+                <span className="text-slate-400 text-sm">Period</span>
+                <span className="font-bold text-white text-base">
+                  {start.toLocaleDateString()} - {end.toLocaleDateString()}
+                </span>
+              </div>
+            );
+          }
+          const nextCharge = new Date(end);
+          nextCharge.setDate(nextCharge.getDate() + 1);
+          return (
+            <>
+              <div className="flex justify-between items-center py-1.5 px-2 rounded-lg bg-slate-700/30">
+                <span className="text-slate-400 text-sm">Last paid on</span>
+                <span className="font-bold text-white text-base">
+                  {start.toLocaleDateString()}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-1.5 px-2 rounded-lg bg-slate-700/30">
+                <span className="text-slate-400 text-sm">Next charge</span>
+                <span className="font-bold text-white text-base">
+                  {nextCharge.toLocaleDateString()}
+                </span>
+              </div>
+            </>
+          );
+        })()}
+      </div>
+
+      {/* Action Buttons */}
+      {isFreeOrBonusPlan(plan) && (
         <div className="pt-2">
-          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => router.push('/plans?from=home')}>
+          <Button
+            className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-semibold py-3 rounded-xl transition-all shadow-lg hover:shadow-xl border-0"
+            onClick={() => router.push('/plans?from=home')}
+          >
             Upgrade to Premium
           </Button>
         </div>
       )}
 
       {(() => {
-        const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as string | undefined;
+        const slug = getPlanSlug(plan);
         return slug && slug !== 'free' && slug !== 'bonus';
       })() && (
         <div className="pt-2">
           <Button
-            className="border border-emerald-500 text-emerald-400 hover:bg-emerald-500/10 bg-transparent"
+            className="w-full border-2 border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500 bg-transparent font-semibold py-3 rounded-xl transition-all"
             onClick={() => router.push('/credits?from=home')}
           >
             Buy credits
@@ -225,15 +253,20 @@ export default function HomePageComponent({ access_token }: Props) {
   };
 
   const handleAgeTypeSelected = async (selectedAgeType: string) => {
+    if (!access_token) {
+      toast.error('Authentication required');
+      return;
+    }
+
     setIsUpdatingUser(true);
 
     try {
       const updateData = {
         age_type: selectedAgeType,
         parent_ok:
-          selectedAgeType === 'child' || selectedAgeType === 'teen'
+          selectedAgeType === 'teen' || selectedAgeType === 'parent'
             ? true
-            : undefined,
+            : false,
       };
 
       const userData = await updateUser({
@@ -241,8 +274,13 @@ export default function HomePageComponent({ access_token }: Props) {
         token: access_token,
       });
 
+      if (!userData?.data) {
+        throw new Error('Invalid response from server');
+      }
+
       setUser({ data: userData.data });
       setShowAgeTypeModal(false);
+
       if (selectedCharacter) {
         setCharacter(selectedCharacter);
         addCharacter(selectedCharacter);
@@ -250,6 +288,11 @@ export default function HomePageComponent({ access_token }: Props) {
       }
     } catch (error) {
       console.error('Error updating age type:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Failed to update age type. Please try again.';
+      toast.error(errorMessage);
       throw error;
     } finally {
       setIsUpdatingUser(false);
@@ -292,7 +335,7 @@ export default function HomePageComponent({ access_token }: Props) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500"></div>
       </div>
     );
@@ -302,12 +345,36 @@ export default function HomePageComponent({ access_token }: Props) {
 
   const SidebarContent = () => (
     <>
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-8">
+      <div className="p-6 flex flex-col h-full">
+        <h1 className="text-2xl font-bold mb-6 text-slate-900">
           Nice<span className="text-pink-500"> Buddies</span>
         </h1>
 
-        <nav className="space-y-4">
+        {/* Plan and Credits */}
+        {isLoggedIn && (
+          <div className="mb-6 space-y-3">
+            {plan && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="w-full capitalize border border-slate-300 rounded-xl flex items-center gap-2 px-4 py-2.5 font-semibold text-slate-700 cursor-pointer hover:bg-white transition-all shadow-sm hover:shadow-md bg-white">
+                    <span className="text-xs bg-gradient-to-r from-pink-500 to-purple-500 text-white px-2.5 py-1 rounded-full font-bold">
+                      Plan
+                    </span>
+                    <span className="text-sm flex-1 text-left">
+                      {getPlanName(plan)}
+                    </span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="border-0 bg-gradient-to-br from-slate-800 via-slate-800 to-slate-900 shadow-2xl p-6 w-[min(90vw,22rem)]">
+                  <PlanPopoverBody />
+                </PopoverContent>
+              </Popover>
+            )}
+            <CreditsComponent />
+          </div>
+        )}
+
+        <nav className="space-y-4 flex-1">
           <button
             onClick={() => {
               currentChat?.data
@@ -315,7 +382,7 @@ export default function HomePageComponent({ access_token }: Props) {
                 : handleCharacterClick(sortedCharacters[0]);
               closeMobileMenu();
             }}
-            className="cursor-pointer flex items-center space-x-3 w-full text-left p-3 rounded-lg text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-800 transition-colors"
+            className="cursor-pointer flex items-center space-x-3 w-full text-left p-3 rounded-xl text-white font-semibold bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 transition-all shadow-md hover:shadow-lg"
           >
             <span>💬</span>
             <span>My Chats</span>
@@ -323,11 +390,11 @@ export default function HomePageComponent({ access_token }: Props) {
         </nav>
 
         {user?.data && (
-          <div className="absolute bottom-6 left-6 right-6 space-y-3">
+          <div className="mt-auto pt-4 border-t border-slate-200">
             <Link
               href={'/profile'}
               onClick={closeMobileMenu}
-              className="flex cursor-pointer items-center space-x-3 w-full text-left text-gray-400 hover:text-white"
+              className="flex cursor-pointer items-center space-x-3 w-full text-left text-slate-700 hover:text-slate-900 p-2 rounded-lg hover:bg-white transition-colors"
             >
               <User className="w-4 h-4" />
               <span>Profile settings</span>
@@ -339,11 +406,11 @@ export default function HomePageComponent({ access_token }: Props) {
   );
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       {/* Mobile Overlay */}
       {isMobile && isMobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
@@ -357,7 +424,7 @@ export default function HomePageComponent({ access_token }: Props) {
             : 'fixed left-0 top-0 h-full z-30'
         }
         ${isMobileMenuOpen || !isMobile ? 'w-64' : 'w-0'}
-        transition-all duration-300 bg-gray-900 border-r border-gray-800 overflow-hidden
+        transition-all duration-300 bg-slate-100 border-r border-slate-200 overflow-hidden shadow-lg
         ${isMobile && !isMobileMenuOpen ? '-translate-x-full' : 'translate-x-0'}
       `}
       >
@@ -365,7 +432,7 @@ export default function HomePageComponent({ access_token }: Props) {
         {isMobile && (
           <button
             onClick={() => setIsMobileMenuOpen(false)}
-            className="absolute top-4 right-4 z-10 p-2 text-gray-400 hover:text-white"
+            className="absolute top-4 right-4 z-10 p-2 text-slate-600 hover:text-slate-900"
           >
             <X className="w-5 h-5" />
           </button>
@@ -377,15 +444,21 @@ export default function HomePageComponent({ access_token }: Props) {
       {/* Main Content */}
       <div className={`${isMobile ? 'ml-0' : 'ml-64'}`}>
         {/* Header */}
-        <header className="border-b border-gray-800 bg-black/95 backdrop-blur-sm sticky top-0 z-40">
+        <header className="border-b border-slate-200 bg-white/80 backdrop-blur-sm sticky top-0 z-40 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-start justify-between h-auto py-3 md:items-center md:h-16">
-              <div className={`${isMobile ? 'flex flex-col gap-2' : 'flex items-center space-x-4'}`}>
+              <div
+                className={`${
+                  isMobile
+                    ? 'flex flex-col gap-2'
+                    : 'flex items-center space-x-4'
+                }`}
+              >
                 {/* Mobile Menu Button */}
                 {isMobile && (
                   <button
                     onClick={() => setIsMobileMenuOpen(true)}
-                    className="p-2 text-gray-400 hover:text-white"
+                    className="p-2 text-slate-600 hover:text-slate-900"
                   >
                     <Menu className="w-5 h-5" />
                   </button>
@@ -393,49 +466,13 @@ export default function HomePageComponent({ access_token }: Props) {
 
                 {/* Mobile Logo */}
                 {isMobile && (
-                  <h1 className="text-xl font-bold">
+                  <h1 className="text-xl font-bold text-slate-900">
                     Nice<span className="text-pink-500">Buddies</span>
                   </h1>
-                )}
-
-                {/* Mobile: stack Plan and Credits under the logo */}
-                {isMobile && (
-                  <div className="flex flex-col gap-2">
-                    {isLoggedIn && plan && (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <h1 className="capitalize border rounded-lg flex items-center gap-1 px-3 py-1 font-semibold text-gray-100 cursor-pointer">
-                            {((plan as any)?.attributes?.name ?? (plan as any)?.data?.attributes?.name ?? 'Plan')}
-                          </h1>
-                        </PopoverTrigger>
-                        <PopoverContent className="border bg-gray-700 border-gray-400 w-[min(90vw,22rem)]">
-                          <PlanPopoverBody />
-                        </PopoverContent>
-                      </Popover>
-                    )}
-                    {isLoggedIn && <CreditsComponent />}
-                  </div>
                 )}
               </div>
 
               <div className="flex items-center space-x-4">
-                {/* Plan badge and popover */}
-                {!isMobile && isLoggedIn && plan && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <h1 className="capitalize border rounded-lg flex items-center gap-1 px-3 py-1 font-semibold text-gray-100 cursor-pointer">
-                        {((plan as any)?.attributes?.name ?? (plan as any)?.data?.attributes?.name ?? 'Plan')}
-                      </h1>
-                    </PopoverTrigger>
-                    <PopoverContent className="border bg-gray-700 border-gray-400">
-                      <PlanPopoverBody />
-                    </PopoverContent>
-                  </Popover>
-                )}
-
-                {/* Credits Component */}
-                {!isMobile && isLoggedIn && <CreditsComponent />}
-                
                 {isLoggedIn ? (
                   <div className="flex items-center space-x-3">
                     <Link
@@ -459,7 +496,7 @@ export default function HomePageComponent({ access_token }: Props) {
                   <div className="flex items-center space-x-3">
                     <button
                       onClick={() => setShowSignInModal(true)}
-                      className="text-gray-300 hover:text-white transition-colors text-sm sm:text-base"
+                      className="text-slate-700 hover:text-slate-900 transition-colors text-sm sm:text-base font-medium"
                     >
                       Login
                     </button>
@@ -481,10 +518,10 @@ export default function HomePageComponent({ access_token }: Props) {
 
         {/* Characters Section */}
         <div className="px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-          <h3 className="text-2xl sm:text-3xl font-boldtext-center sm:text-left">
+          <h3 className="text-2xl sm:text-3xl font-bold text-center sm:text-left text-slate-900">
             Find your <span className="text-pink-500">AI buddy!</span>
           </h3>
-          <p className="mt-1 text-md mb-6 sm:mb-8 text-gray-300">
+          <p className="mt-1 text-md mb-6 sm:mb-8 text-slate-600">
             Ethical and empathic virtual friends who listen, support, and never
             judge.
           </p>
@@ -496,7 +533,7 @@ export default function HomePageComponent({ access_token }: Props) {
                 <div
                   key={character.id}
                   onClick={() => handleCharacterClick(character)}
-                  className="bg-gray-800 rounded-2xl overflow-hidden hover:bg-gray-750 transition-all duration-300 cursor-pointer group hover:scale-105 hover:shadow-2xl relative"
+                  className="bg-gray-100 rounded-2xl overflow-hidden hover:bg-slate-50 transition-all duration-300 cursor-pointer group hover:scale-105 hover:shadow-xl border border-slate-200 relative"
                 >
                   {/* Active Chat Indicator */}
                   {isActive && (
@@ -526,7 +563,7 @@ export default function HomePageComponent({ access_token }: Props) {
                     )}
 
                     {/* Hover overlay */}
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center rounded-t-2xl">
                       <button className="bg-pink-500 flex items-center gap-2 hover:bg-pink-600 px-4 py-2 sm:px-6 rounded-lg font-semibold transition-colors cursor-pointer text-sm sm:text-base">
                         {isActive ? 'Continue Chat' : 'Chat Now'}
                         {loading && <Loader className="animate-spin w-4 h-4" />}
@@ -535,10 +572,10 @@ export default function HomePageComponent({ access_token }: Props) {
                   </div>
 
                   <div className="p-3 sm:p-4">
-                    <h4 className="text-lg sm:text-xl font-bold mb-1">
+                    <h4 className="text-lg sm:text-xl font-bold mb-1 text-slate-900">
                       {character.attributes.name} {character.attributes.age}
                     </h4>
-                    <p className="text-gray-400 text-xs sm:text-sm line-clamp-2">
+                    <p className="text-slate-600 text-xs sm:text-sm line-clamp-2">
                       {character.attributes.summary}
                     </p>
                   </div>

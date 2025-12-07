@@ -170,14 +170,28 @@ export type CreditPackResource = {
   };
 };
 
+export type PlanData = {
+  id: string;
+  type: string;
+  attributes?: {
+    name?: string;
+    description?: string;
+    slug?: string;
+    price?: string | number;
+    duration?: number;
+    duration_unit?: string;
+    credit_included?: string | number;
+  };
+};
+
 export interface UserState {
   user: User | null;
   access_token: string;
   isLoggedIn: boolean;
   credits: number;
   accountId: string | null;
-  plan: { id: string; type: string; attributes?: Record<string, unknown> } | null;
-  userPlan: { id: string; type: string; attributes?: Record<string, unknown> } | null;
+  plan: PlanData | null;
+  userPlan: PlanData | null;
   paidPlans: PlanResource[] | null;
   creditPacks: CreditPackResource[] | null;
   // Global modal for insufficient credits/plan
@@ -446,9 +460,7 @@ const useUserStore = create<UserState>()(
 
           if (!Array.isArray(chatData)) {
             // Validate single chat data
-
-            //@ts-expect-error error
-            if (!chatData?.data?.id || chatData?.errors) {
+            if (!chatData || !('data' in chatData) || !chatData.data?.id || ('errors' in chatData && chatData.errors)) {
               console.warn('Invalid chat data received:', chatData);
               return state; // Don't update state with invalid data
             }
@@ -631,20 +643,20 @@ const useUserStore = create<UserState>()(
         // Extract plan and (users_)user_plan from user data; support wrapped or flattened
         const rel = userData?.data?.relationships;
         const rawPlan = rel?.plan || null;
-        const planData = (rawPlan && ('data' in rawPlan ? (rawPlan as any).data : rawPlan)) || null;
+        const planData = (rawPlan && ('data' in rawPlan ? (rawPlan as { data: PlanData }).data : rawPlan as PlanData)) || null;
 
         const rawUserPlan = rel?.users_plan || rel?.user_plan || null;
-        const userPlanData = (rawUserPlan && ('data' in rawUserPlan ? (rawUserPlan as any).data : rawUserPlan)) || null;
+        const userPlanData = (rawUserPlan && ('data' in rawUserPlan ? (rawUserPlan as { data: PlanData }).data : rawUserPlan as PlanData)) || null;
 
         set({
           plan: planData
-            ? { id: (planData as any).id, type: (planData as any).type, attributes: (planData as any).attributes }
+            ? { id: planData.id, type: planData.type, attributes: planData.attributes }
             : null,
           userPlan: userPlanData
             ? {
-                id: (userPlanData as any).id,
-                type: (userPlanData as any).type,
-                attributes: (userPlanData as any).attributes,
+                id: userPlanData.id,
+                type: userPlanData.type,
+                attributes: userPlanData.attributes,
               }
             : null,
         });

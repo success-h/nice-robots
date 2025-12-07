@@ -30,6 +30,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { useApi } from '@/hooks/useApi';
 import { RequestCookie } from 'next/dist/compiled/@edge-runtime/cookies';
+import { toast } from 'sonner';
+import {
+  getPlanName,
+  getPlanDescription,
+  getPlanPrice,
+  getPlanDuration,
+  getPlanDurationUnit,
+  getPlanSlug,
+  getUserPlanAttributes,
+} from '@/utils/planHelpers';
 
 interface AgeType {
   value: string;
@@ -232,17 +242,55 @@ export default function ProfilePage({ access_token }: Props) {
   const currentAgeTypeInfo = getCurrentAgeTypeInfo();
 
   const handleDeleteUser = async () => {
+    if (!access_token) {
+      toast.error('Authentication required to delete account');
+      return;
+    }
+
     setDeleteLoading(true);
-    await useApi(
-      `/users`,
-      {
-        method: 'DELETE',
-      },
-      access_token
-    );
-    setDeleteLoading(false);
-    logout();
-    router.push('/');
+    try {
+      const response = await useApi(
+        `/users`,
+        {
+          method: 'DELETE',
+        },
+        access_token
+      );
+
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({ message: 'Failed to delete account' }));
+        throw new Error(
+          errorData.message || `Server error: ${response.status}`
+        );
+      }
+
+      // Clear all user data
+      logout();
+
+      // Clear cookies
+      deleteCookie('access_token');
+
+      // Clear localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.clear();
+      }
+
+      // Redirect to home
+      router.push('/');
+
+      toast.success('Account deleted successfully');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Failed to delete account. Please try again.';
+      toast.error(errorMessage);
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const handleCancelSubscription = async () => {
@@ -277,23 +325,23 @@ export default function ProfilePage({ access_token }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700 p-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
+      <div className="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-sm">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between">
           <button
             onClick={handleBackNavigation}
-            className="p-2 cursor-pointer hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2.5 cursor-pointer hover:bg-slate-100 rounded-xl transition-all text-slate-700 hover:text-slate-900 shadow-sm hover:shadow-md border border-slate-200/50"
           >
-            <ArrowLeft className="h-6 w-6" />
+            <ArrowLeft className="h-5 w-5" />
           </button>
 
-          <h1 className="text-xl font-bold">Profile Settings</h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Profile Settings</h1>
 
           {!isEditing ? (
             <button
               onClick={() => setIsEditing(true)}
-              className="cursor-pointer p-2 bg-pink-500 hover:bg-pink-600 rounded-lg transition-colors"
+              className="cursor-pointer p-3 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 rounded-xl transition-all shadow-lg hover:shadow-xl text-white active:scale-95"
             >
               <Edit3 className="h-5 w-5" />
             </button>
@@ -301,17 +349,17 @@ export default function ProfilePage({ access_token }: Props) {
             <div className="flex space-x-2">
               <button
                 onClick={handleCancel}
-                className="p-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors"
+                className="p-3 bg-slate-200 hover:bg-slate-300 rounded-xl transition-all shadow-md hover:shadow-lg text-slate-700 active:scale-95"
               >
                 <X className="h-5 w-5" />
               </button>
               <button
                 onClick={handleSubmit(onSubmit)}
                 disabled={!isDirty || updateProfileMutation.isPending}
-                className="p-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors"
+                className="p-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-xl transition-all shadow-lg hover:shadow-xl text-white active:scale-95"
               >
                 {updateProfileMutation.isPending ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
                   <Check className="h-5 w-5" />
                 )}
@@ -321,36 +369,42 @@ export default function ProfilePage({ access_token }: Props) {
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto p-6 space-y-6">
+      <div className="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
         {/* Avatar Section */}
-        <div className="bg-gray-800 rounded-2xl p-6">
-          <div className="text-center">
-            <div className="relative mb-4">
+        <div className="bg-white rounded-3xl p-8 sm:p-10 shadow-lg border border-slate-200/60 backdrop-blur-sm relative overflow-hidden">
+          {/* Decorative gradient overlay */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-pink-100/30 to-purple-100/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+          
+          <div className="text-center relative z-10">
+            <div className="relative mb-6 inline-block">
+              <div className="absolute inset-0 bg-gradient-to-r from-pink-400 via-purple-400 to-pink-400 rounded-full blur-xl opacity-30 animate-pulse"></div>
               <Image
                 src={user?.data?.attributes?.avatar || '/default-avatar.png'}
                 alt="Profile"
-                width={96}
-                height={96}
-                className="w-24 h-24 rounded-full mx-auto border-4 border-gray-700"
+                width={120}
+                height={120}
+                className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full mx-auto border-4 border-white shadow-xl ring-4 ring-pink-100/50"
               />
               {isEditing && (
-                <button className="absolute bottom-0 right-1/2 translate-x-1/2 translate-y-1/2 bg-pink-500 w-8 h-8 rounded-full flex items-center justify-center border-2 border-gray-800">
-                  <Edit3 className="h-4 w-4" />
+                <button className="absolute bottom-2 right-1/2 translate-x-1/2 bg-gradient-to-r from-pink-500 to-purple-500 w-10 h-10 rounded-full flex items-center justify-center border-4 border-white shadow-xl hover:shadow-2xl transition-all hover:scale-110 active:scale-95">
+                  <Edit3 className="h-5 w-5 text-white" />
                 </button>
               )}
             </div>
 
             {!isEditing ? (
-              <div>
-                <h2 className="text-2xl font-bold mb-1">
+              <div className="space-y-2">
+                <h2 className="text-3xl sm:text-4xl font-bold mb-2 text-slate-900 tracking-tight">
                   {user?.data?.attributes?.name || 'Anonymous User'}
                 </h2>
-                <p className="text-gray-400 text-sm font-mono">
-                  ID: {user?.data?.id?.slice(0, 8)}...
-                </p>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full">
+                  <span className="text-slate-500 text-xs font-mono tracking-wider">
+                    ID: {user?.data?.id?.slice(0, 8)}...
+                  </span>
+                </div>
               </div>
             ) : (
-              <div className="max-w-md mx-auto">
+              <div className="max-w-md mx-auto space-y-3">
                 <Controller
                   control={control}
                   name="name"
@@ -362,14 +416,15 @@ export default function ProfilePage({ access_token }: Props) {
                       value={value}
                       onChange={onChange}
                       onBlur={onBlur}
-                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-xl text-center text-lg font-bold focus:outline-none focus:border-pink-500"
+                      className="w-full p-4 bg-white border-2 border-slate-300 rounded-2xl text-center text-xl font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-sm focus:shadow-md"
                     />
                   )}
                 />
                 {errors.name && (
-                  <p className="text-red-400 text-sm mt-2">
-                    {errors.name.message}
-                  </p>
+                  <div className="flex items-center gap-2 text-red-500 text-sm">
+                    <X className="h-4 w-4" />
+                    <span>{errors.name.message}</span>
+                  </div>
                 )}
               </div>
             )}
@@ -377,26 +432,33 @@ export default function ProfilePage({ access_token }: Props) {
         </div>
 
         {/* Profile Information */}
-        <div className="grid gap-6">
+        <div className="grid gap-5 sm:gap-6">
           {/* Age Type */}
-          <div className="bg-gray-800 rounded-2xl p-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
-                <Calendar className="h-5 w-5 text-purple-400" />
+          <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-lg border border-slate-200/60 backdrop-blur-sm hover:shadow-xl transition-shadow duration-300">
+            <div className="flex items-center space-x-4 mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-purple-500 rounded-2xl flex items-center justify-center shadow-lg ring-4 ring-pink-100/50">
+                <Calendar className="h-6 w-6 text-white" />
               </div>
-              <h3 className="text-lg font-semibold">Age Type</h3>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Age Type</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Your age category</p>
+              </div>
             </div>
 
             {!isEditing ? (
-              <div className="flex items-center space-x-3 ml-13">
-                <span className="text-2xl">{currentAgeTypeInfo.emoji}</span>
-                <p className="text-gray-300">{currentAgeTypeInfo.label}</p>
+              <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-pink-50/50 to-purple-50/50 rounded-2xl border border-pink-100/50">
+                <span className="text-3xl">{currentAgeTypeInfo.emoji}</span>
+                <div>
+                  <p className="text-slate-900 font-semibold">{currentAgeTypeInfo.label}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Current selection</p>
+                </div>
               </div>
             ) : (
-              <div className="ml-13">
+              <div className="space-y-3">
                 {fetchError && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                    {fetchError}
+                  <div className="mb-4 p-4 bg-red-50 border-2 border-red-200 rounded-2xl text-red-700 text-sm flex items-start gap-3">
+                    <X className="h-5 w-5 shrink-0 mt-0.5" />
+                    <span>{fetchError}</span>
                   </div>
                 )}
                 <Controller
@@ -404,14 +466,14 @@ export default function ProfilePage({ access_token }: Props) {
                   name="age_type"
                   rules={{ required: 'Age type is required' }}
                   render={({ field: { onChange, value } }) => (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {ageTypes.map((ageType) => (
                         <label
                           key={ageType.value}
-                          className={`flex items-center space-x-3 p-3 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
+                          className={`group flex items-center space-x-4 p-4 border-2 rounded-2xl cursor-pointer transition-all duration-300 hover:shadow-md ${
                             value === ageType.value
-                              ? 'border-pink-400 bg-pink-50/10'
-                              : 'border-gray-600 hover:border-gray-500'
+                              ? 'border-pink-400 bg-gradient-to-r from-pink-50 via-purple-50 to-pink-50 shadow-lg ring-2 ring-pink-200/50'
+                              : 'border-slate-200 hover:border-slate-300 bg-white'
                           }`}
                         >
                           <input
@@ -422,11 +484,17 @@ export default function ProfilePage({ access_token }: Props) {
                             onChange={() => onChange(ageType.value)}
                             className="sr-only"
                           />
-                          <span className="text-2xl">{ageType.emoji}</span>
-                          <span className="text-gray-300">{ageType.label}</span>
+                          <div className={`text-3xl transition-transform duration-300 ${value === ageType.value ? 'scale-110' : 'group-hover:scale-105'}`}>
+                            {ageType.emoji}
+                          </div>
+                          <div className="flex-1">
+                            <span className={`block text-base ${value === ageType.value ? 'text-slate-900 font-semibold' : 'text-slate-700 font-medium'}`}>
+                              {ageType.label}
+                            </span>
+                          </div>
                           {value === ageType.value && (
-                            <div className="ml-auto w-4 h-4 bg-pink-500 rounded-full flex items-center justify-center">
-                              <Check className="h-3 w-3 text-white" />
+                            <div className="w-6 h-6 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full flex items-center justify-center shadow-md ring-2 ring-pink-200">
+                              <Check className="h-4 w-4 text-white" />
                             </div>
                           )}
                         </label>
@@ -435,29 +503,35 @@ export default function ProfilePage({ access_token }: Props) {
                   )}
                 />
                 {errors.age_type && (
-                  <p className="text-red-400 text-sm mt-2">
-                    {errors.age_type.message}
-                  </p>
+                  <div className="flex items-center gap-2 text-red-500 text-sm mt-2">
+                    <X className="h-4 w-4" />
+                    <span>{errors.age_type.message}</span>
+                  </div>
                 )}
               </div>
             )}
           </div>
 
           {/* Language */}
-          <div className="bg-gray-800 rounded-2xl p-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
-                <Globe className="h-5 w-5 text-blue-400" />
+          <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-lg border border-slate-200/60 backdrop-blur-sm hover:shadow-xl transition-shadow duration-300">
+            <div className="flex items-center space-x-4 mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg ring-4 ring-blue-100/50">
+                <Globe className="h-6 w-6 text-white" />
               </div>
-              <h3 className="text-lg font-semibold">Language</h3>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Language</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Preferred language</p>
+              </div>
             </div>
 
             {!isEditing ? (
-              <p className="text-gray-300 ml-13">
-                {user?.data?.attributes?.language || 'Not specified'}
-              </p>
+              <div className="p-4 bg-gradient-to-r from-blue-50/50 to-cyan-50/50 rounded-2xl border border-blue-100/50">
+                <p className="text-slate-900 font-semibold text-lg">
+                  {user?.data?.attributes?.language || 'Not specified'}
+                </p>
+              </div>
             ) : (
-              <div className="ml-13">
+              <div>
                 <Controller
                   control={control}
                   name="language"
@@ -465,7 +539,7 @@ export default function ProfilePage({ access_token }: Props) {
                     <select
                       value={value}
                       onChange={onChange}
-                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-xl focus:outline-none focus:border-pink-500"
+                      className="w-full p-4 bg-white border-2 border-slate-300 rounded-2xl text-slate-900 font-medium focus:outline-none focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-sm focus:shadow-md appearance-none cursor-pointer"
                     >
                       <option value="">Select language</option>
                       {languageOptions.map((option) => (
@@ -484,33 +558,41 @@ export default function ProfilePage({ access_token }: Props) {
           {(user?.data?.attributes?.age_type === 'teen' ||
             user?.data?.attributes?.age_type === 'parent' ||
             isEditing) && (
-            <div className="bg-gray-800 rounded-2xl p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-yellow-500/20 rounded-full flex items-center justify-center">
-                    <Shield className="h-5 w-5 text-yellow-400" />
+            <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-lg border border-slate-200/60 backdrop-blur-sm hover:shadow-xl transition-shadow duration-300">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-amber-500 rounded-2xl flex items-center justify-center shadow-lg ring-4 ring-yellow-100/50">
+                    <Shield className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold">Parent Approval</h3>
-                    <p className="text-sm text-gray-400">
+                    <h3 className="text-xl font-bold text-slate-900">Parent Approval</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
                       Required for children and teenagers
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-3">
-                  <span
-                    className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                      user?.data?.attributes?.parent_ok
-                        ? 'bg-green-500/20 text-green-400'
-                        : 'bg-yellow-500/20 text-yellow-400'
-                    }`}
-                  >
-                    {user?.data?.attributes?.parent_ok ? 'Approved' : 'Pending'}
-                  </span>
+                <div className="flex items-center space-x-4">
+                  <div className={`px-4 py-2 rounded-2xl text-sm font-bold shadow-md ${
+                    user?.data?.attributes?.parent_ok
+                      ? 'bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-700 ring-2 ring-emerald-200/50'
+                      : 'bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-700 ring-2 ring-yellow-200/50'
+                  }`}>
+                    {user?.data?.attributes?.parent_ok ? (
+                      <span className="flex items-center gap-2">
+                        <Check className="h-4 w-4" />
+                        Approved
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Pending
+                      </span>
+                    )}
+                  </div>
 
                   {isEditing && (
-                    <div className="flex flex-col items-end">
+                    <div className="flex flex-col items-end gap-2">
                       <Controller
                         control={control}
                         name="parent_ok"
@@ -530,13 +612,13 @@ export default function ProfilePage({ access_token }: Props) {
                                 watchedAgeType === 'parent'
                               }
                             />
-                            <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500 peer-disabled:opacity-50"></div>
+                            <div className="w-14 h-7 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all after:shadow-md peer-checked:bg-gradient-to-r peer-checked:from-emerald-500 peer-checked:to-emerald-600 peer-disabled:opacity-50 shadow-inner"></div>
                           </label>
                         )}
                       />
                       {(watchedAgeType === 'teen' ||
                         watchedAgeType === 'parent') && (
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-xs text-slate-500 text-right">
                           Auto-enabled for minors
                         </p>
                       )}
@@ -549,44 +631,66 @@ export default function ProfilePage({ access_token }: Props) {
         </div>
 
         {/* Subscription */}
-        <div className="bg-gray-800 rounded-2xl p-6">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center">
-              <Calendar className="h-5 w-5 text-emerald-400" />
+        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-lg border border-slate-200/60 backdrop-blur-sm hover:shadow-xl transition-shadow duration-300">
+          <div className="flex items-center space-x-4 mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-500 rounded-2xl flex items-center justify-center shadow-lg ring-4 ring-emerald-100/50">
+              <Calendar className="h-6 w-6 text-white" />
             </div>
-            <h3 className="text-lg font-semibold">Subscription</h3>
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">Subscription</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Your current plan</p>
+            </div>
           </div>
 
           {plan ? (
-            <div className="ml-13 space-y-2">
-              <p className="text-gray-200">
-                <span className="text-gray-400">Current plan:</span>{' '}
-                <span className="font-semibold">{(plan as any)?.attributes?.name}</span>
-              </p>
-              {(plan as any)?.attributes?.description && (
-                <p className="text-sm text-gray-300 whitespace-pre-wrap">{(plan as any)?.attributes?.description}</p>
-              )}
-              <div className="text-sm text-gray-300 space-y-1">
-                {(plan as any)?.attributes?.price !== undefined && (
-                  <div>
-                    <span className="text-gray-400">Price:</span> {(plan as any)?.attributes?.price}
-                  </div>
-                )}
-                {(plan as any)?.attributes?.duration && (
-                  <div>
-                    <span className="text-gray-400">Duration:</span> {(plan as any)?.attributes?.duration} {(plan as any)?.attributes?.duration_unit}
-                  </div>
-                )}
-                {(userPlan as any)?.attributes?.start_date && (
-                  <div>
-                    <span className="text-gray-400">Period:</span>{' '}
-                    {new Date((userPlan as any)?.attributes?.start_date).toLocaleDateString()} - {new Date((userPlan as any)?.attributes?.end_date).toLocaleDateString()}
-                  </div>
+            <div className="space-y-4">
+              <div className="p-5 bg-gradient-to-br from-emerald-50/50 to-green-50/50 rounded-2xl border border-emerald-100/50">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-medium text-slate-600">Current plan</span>
+                  <span className="px-3 py-1 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs font-bold rounded-full shadow-md">
+                    Active
+                  </span>
+                </div>
+                <h4 className="text-2xl font-bold text-slate-900 mb-2">{getPlanName(plan)}</h4>
+                {getPlanDescription(plan) && (
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    {getPlanDescription(plan)}
+                  </p>
                 )}
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {getPlanPrice(plan) !== undefined && (
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <p className="text-xs text-slate-500 mb-1">Price</p>
+                    <p className="text-lg font-bold text-slate-900">{getPlanPrice(plan)}</p>
+                  </div>
+                )}
+                {getPlanDuration(plan) && (
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <p className="text-xs text-slate-500 mb-1">Duration</p>
+                    <p className="text-lg font-bold text-slate-900">
+                      {getPlanDuration(plan)} {getPlanDurationUnit(plan)}
+                    </p>
+                  </div>
+                )}
+                {(() => {
+                  const userPlanAttrs = getUserPlanAttributes(userPlan);
+                  if (!userPlanAttrs?.start_date || !userPlanAttrs?.end_date)
+                    return null;
+                  return (
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 sm:col-span-2">
+                      <p className="text-xs text-slate-500 mb-1">Period</p>
+                      <p className="text-lg font-bold text-slate-900">
+                        {new Date(userPlanAttrs.start_date).toLocaleDateString()} - {new Date(userPlanAttrs.end_date).toLocaleDateString()}
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+
               {(() => {
-                const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as string | undefined;
+                const slug = getPlanSlug(plan);
                 return slug && slug !== 'free' && slug !== 'bonus';
               })() && (
                 <div className="pt-2">
@@ -596,21 +700,28 @@ export default function ProfilePage({ access_token }: Props) {
                       e.preventDefault();
                       if (!cancelSubLoading) handleCancelSubscription();
                     }}
-                    className="text-red-400 hover:text-red-300 underline decoration-red-400/60 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="text-red-600 hover:text-red-700 underline decoration-red-400/60 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed font-semibold transition-colors"
                     disabled={cancelSubLoading}
                   >
-                    {cancelSubLoading ? 'Unsubscribing…' : 'Unsubscribe'}
+                    {cancelSubLoading ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Unsubscribing…
+                      </span>
+                    ) : (
+                      'Unsubscribe'
+                    )}
                   </button>
                 </div>
               )}
 
               {(() => {
-                const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as string | undefined;
+                const slug = getPlanSlug(plan);
                 return !slug || slug === 'free' || slug === 'bonus';
               })() && (
                 <div className="pt-2">
                   <Button
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all"
                     onClick={() => router.push('/plans?from=settings')}
                   >
                     Upgrade to Premium
@@ -619,39 +730,44 @@ export default function ProfilePage({ access_token }: Props) {
               )}
             </div>
           ) : (
-            <p className="ml-13 text-gray-300">No active subscription</p>
+            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 text-center">
+              <p className="text-slate-600 font-medium">No active subscription</p>
+            </div>
           )}
         </div>
 
-        {/* Logout Button */}
-        <div className="pt-6 flex items-center gap-4">
+        {/* Action Buttons */}
+        <div className="pt-4 sm:pt-6 space-y-3">
           <button
             onClick={() => {
               logout();
               deleteCookie('access_token');
               router.push('/');
             }}
-            className="w-full cursor-pointer bg-blue-400/50  border-red-500/30 hover:bg-red-500/30 text-white font-semibold py-4 rounded-xl transition-colors"
+            className="w-full cursor-pointer bg-white hover:bg-slate-50 border-2 border-slate-300 hover:border-slate-400 text-slate-700 font-bold py-4 rounded-2xl transition-all shadow-md hover:shadow-lg active:scale-[0.98]"
           >
             Sign Out
           </button>
           <Dialog>
-            <DialogTrigger className="w-full cursor-pointer bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 text-red-400 font-semibold py-4 rounded-xl transition-colors">
+            <DialogTrigger className="w-full cursor-pointer bg-gradient-to-r from-red-50 to-rose-50 hover:from-red-100 hover:to-rose-100 border-2 border-red-300 hover:border-red-400 text-red-600 font-bold py-4 rounded-2xl transition-all shadow-md hover:shadow-lg active:scale-[0.98]">
               Delete Account
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
               <DialogHeader>
-                <DialogTitle className="text-black">
+                <DialogTitle className="text-slate-900 text-lg sm:text-xl">
                   Are you absolutely sure?
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-slate-600 text-sm">
                   This action cannot be undone. This will permanently delete
                   your account from our servers.
                 </DialogDescription>
               </DialogHeader>
-              <DialogFooter>
-                <DialogClose>
-                  <Button variant={'outline'} className="text-black">
+              <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+                <DialogClose asChild>
+                  <Button 
+                    variant={'outline'} 
+                    className="w-full sm:w-auto text-slate-700 border-slate-300 hover:bg-slate-50"
+                  >
                     Cancel
                   </Button>
                 </DialogClose>
@@ -659,12 +775,17 @@ export default function ProfilePage({ access_token }: Props) {
                   onClick={() => {
                     handleDeleteUser();
                   }}
-                  className="bg-red-500"
+                  disabled={deleteLoading}
+                  className="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white"
                 >
-                  {deleteLoading && (
-                    <Loader2 className="mr-2 h-6 w-6 animate-spin text-pink-500" />
+                  {deleteLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    'Yes, Delete Account'
                   )}
-                  Yes, Delete chat
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -673,11 +794,18 @@ export default function ProfilePage({ access_token }: Props) {
 
         {/* Error Message */}
         {updateProfileMutation.isError && (
-          <div className="bg-red-500/20 border border-red-500/30 text-red-400 p-4 rounded-xl">
-            <p className="font-semibold">Update Failed</p>
-            <p className="text-sm">
-              Please try again or contact support if the problem persists.
-            </p>
+          <div className="bg-gradient-to-r from-red-50 to-rose-50 border-2 border-red-200 text-red-700 p-5 rounded-2xl shadow-lg">
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                <X className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <p className="font-bold text-lg mb-1">Update Failed</p>
+                <p className="text-sm leading-relaxed">
+                  Please try again or contact support if the problem persists.
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -110,29 +110,30 @@ export default function CreditsComponent() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center space-x-2 px-3 py-1 rounded-lg bg-gray-700">
-        <Coins className="w-4 h-4 text-yellow-400" />
-        <span className="text-sm text-gray-300">Loading...</span>
+      <div className="flex items-center space-x-2 px-3 py-2 rounded-xl bg-slate-100 border border-slate-300 shadow-sm">
+        <Coins className="w-4 h-4 text-yellow-500" />
+        <span className="text-sm text-slate-600 font-medium">Loading...</span>
       </div>
     );
   }
 
   if (!isConnected) {
     return (
-      <div className="flex items-center space-x-2 px-3 py-1 rounded-lg bg-red-900/20 border border-red-500/30">
-        <Coins className="w-4 h-4 text-red-400" />
-        <span className="text-sm text-red-300">Offline</span>
+      <div className="flex items-center space-x-2 px-3 py-2 rounded-xl bg-red-50 border border-red-200 shadow-sm">
+        <Coins className="w-4 h-4 text-red-500" />
+        <span className="text-sm text-red-600 font-medium">Offline</span>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center space-x-2 px-3 py-1 rounded-lg bg-gray-700 border border-gray-600">
-      <Coins className="w-4 h-4 text-green-400" />
-      <span className="text-sm font-semibold text-white">
+    <div className="flex items-center space-x-2 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 shadow-md hover:shadow-lg transition-shadow">
+      <div className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/20">
+        <Coins className="w-3.5 h-3.5 text-emerald-400" />
+      </div>
+      <span className="text-sm font-bold text-white">
         {credits.toLocaleString()}
       </span>
-      {/*<div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>*/}
     </div>
   );
 }

@@ -75,12 +75,17 @@ const AgeTypeModal: React.FC<AgeTypeModalProps> = ({
   }, [isOpen]);
 
   const handleAgeTypeClick = async (ageType: string) => {
+    if (isSubmitting || isLoading) return;
+
     setIsSubmitting(true);
     try {
       await onAgeTypeSelected(ageType);
+      // Only close if successful (onAgeTypeSelected doesn't throw)
       onClose();
     } catch (error) {
       console.error('Error selecting age type:', error);
+      // Error is handled by parent component, but don't close modal on error
+      // so user can try again
     } finally {
       setIsSubmitting(false);
     }
@@ -94,25 +99,26 @@ const AgeTypeModal: React.FC<AgeTypeModalProps> = ({
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
 
       {/* Modal container */}
-      <div className="relative w-full max-w-md mx-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-pink-100">
+      <div className="relative w-full max-w-md mx-4 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-pink-100 max-h-[90vh] overflow-y-auto">
         {/* Close button added here */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-800 transition-colors z-10"
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 text-slate-400 hover:text-slate-800 transition-colors z-10 p-1.5 rounded-lg hover:bg-slate-100"
+          aria-label="Close"
         >
-          <X size={24} />
+          <X size={20} className="sm:w-6 sm:h-6" />
         </button>
         {/* Modal content */}
-        <div className="p-8">
+        <div className="p-4 sm:p-6 md:p-8">
           {/* Header */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-pink-100 to-pink-200 rounded-full mx-auto mb-4 flex items-center justify-center">
-              <span className="text-2xl">👋</span>
+          <div className="text-center mb-6 sm:mb-8">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-pink-100 to-pink-200 rounded-full mx-auto mb-3 sm:mb-4 flex items-center justify-center">
+              <span className="text-xl sm:text-2xl">👋</span>
             </div>
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">
+            <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2">
               Welcome!
             </h2>
-            <p className="text-gray-600 text-sm leading-relaxed">
+            <p className="text-slate-600 text-xs sm:text-sm leading-relaxed px-2">
               For comfortable and safe communication, please select your age
               type.
             </p>
@@ -132,13 +138,13 @@ const AgeTypeModal: React.FC<AgeTypeModalProps> = ({
                 key={ageType.value}
                 onClick={() => handleAgeTypeClick(ageType.value)}
                 disabled={isSubmitting || isLoading}
-                className="w-full p-4 border-2 border-pink-200 rounded-xl text-left transition-all duration-200 hover:border-pink-300 hover:bg-pink-50/50 focus:outline-none focus:border-pink-400 focus:bg-pink-50/50 disabled:opacity-50 disabled:cursor-not-allowed group"
+                className="w-full p-3 sm:p-4 border-2 border-pink-200 rounded-xl text-left transition-all duration-200 hover:border-pink-300 hover:bg-pink-50/50 focus:outline-none focus:border-pink-400 focus:bg-pink-50/50 disabled:opacity-50 disabled:cursor-not-allowed group active:scale-[0.98]"
               >
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl group-hover:scale-110 transition-transform duration-200">
+                <div className="flex items-center space-x-2 sm:space-x-3">
+                  <span className="text-xl sm:text-2xl group-hover:scale-110 transition-transform duration-200 flex-shrink-0">
                     {ageType.emoji}
                   </span>
-                  <span className="text-gray-700 font-medium group-hover:text-pink-700 transition-colors duration-200">
+                  <span className="text-slate-700 text-sm sm:text-base font-medium group-hover:text-pink-700 transition-colors duration-200">
                     {ageType.label}
                   </span>
                 </div>

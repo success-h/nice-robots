@@ -1,21 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import {
-  ArrowLeft,
-  ArrowRight,
-  Mic,
-  Send,
-  Volume2,
-  VolumeX,
-  X,
-  Square,
-  Plus,
-  MessageSquare,
-  Loader2,
-  Edit2,
-  PanelRight,
-} from 'lucide-react';
+import { Mic, Send, Volume2, VolumeX, X, Square, Loader2 } from 'lucide-react';
 import useUserStore, {
   Message,
   useModerationHandling,
@@ -23,30 +9,11 @@ import useUserStore, {
 import { useApi } from '@/hooks/useApi';
 import Image from 'next/image';
 import Link from 'next/link';
-import ChatList from '@/components/ChatList';
-import CreditsComponent from '@/components/CreditsComponent';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from '@/components/ui/carousel';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { MdLocationPin } from 'react-icons/md';
+import ChatSidebar from '@/components/ChatSidebar';
+import ChatHeader from '@/components/ChatHeader';
+import CharacterDetailsSidebar from '@/components/CharacterDetailsSidebar';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
@@ -65,7 +32,14 @@ export default function ChatPage({ access_token }: Props) {
   const [isMuted, setIsMuted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
-  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
+  // Load sidebar state from localStorage
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('rightSidebarOpen');
+      return saved !== null ? saved === 'true' : true;
+    }
+    return true;
+  });
   const [viewportWidth, setViewportWidth] = useState(0);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [relationshipTypes, setRelationshipTypes] = useState<string[]>([]);
@@ -103,11 +77,17 @@ export default function ChatPage({ access_token }: Props) {
       setIsMobile(isMobileDevice);
       setViewportWidth(window.innerWidth);
       if (isMobileDevice) {
+        // On mobile, always close sidebars
         setSidebarOpen(false);
         setIsRightSidebarOpen(false);
       } else {
+        // On desktop, restore left sidebar but keep right sidebar state from localStorage
         setSidebarOpen(true);
-        setIsRightSidebarOpen(true);
+        // Don't auto-open right sidebar - respect user's preference
+        const saved = localStorage.getItem('rightSidebarOpen');
+        if (saved !== null) {
+          setIsRightSidebarOpen(saved === 'true');
+        }
       }
     };
 
@@ -115,6 +95,13 @@ export default function ChatPage({ access_token }: Props) {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Save right sidebar state to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !isMobile) {
+      localStorage.setItem('rightSidebarOpen', String(isRightSidebarOpen));
+    }
+  }, [isRightSidebarOpen, isMobile]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -143,6 +130,8 @@ export default function ChatPage({ access_token }: Props) {
   };
 
   const sendMessage = async (message: Message, chatId: string) => {
+    if (!currentChat?.data?.id) return;
+
     setInputMessage('');
     setIsTyping(true);
 
@@ -178,11 +167,11 @@ export default function ChatPage({ access_token }: Props) {
           if (errorData.reason === 'filtering' && errorData.details) {
             const moderationDetails = handleModerationFailure(
               message,
-              currentChat?.data?.id!,
+              currentChat.data.id,
               errorData.details
             );
             const moderationResponse = await useApi(
-              `/moderation-resolutions/${currentChat?.data?.id}`,
+              `/moderation-resolutions/${currentChat.data.id}`,
               {
                 method: 'POST',
                 headers: {
@@ -207,7 +196,7 @@ export default function ChatPage({ access_token }: Props) {
                 role: 'assistant',
                 content: moderationParsedData.data.text,
               };
-              updateChatHistory(assistantMessage, currentChat?.data.id!);
+              updateChatHistory(assistantMessage, currentChat.data.id);
             }
             return;
           }
@@ -236,6 +225,83 @@ export default function ChatPage({ access_token }: Props) {
           .filter(Boolean)
           .join('');
 
+        // For text mode, strip markdown formatting; for voice mode, keep it for displayContent
+        const textContent = parsedData.data.text || '';
+        const shouldStripMarkdown = response_type === 'text';
+
+        // Helper to process text and extract code blocks
+        const processTextWithCodeBlocks = (
+          text: string
+        ): Array<{ type: 'text' | 'code'; value: string }> => {
+          const result: Array<{ type: 'text' | 'code'; value: string }> = [];
+
+          // Match code blocks (```language\ncode\n```)
+          const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+          let lastIndex = 0;
+          let match;
+
+          while ((match = codeBlockRegex.exec(text)) !== null) {
+            // Add text before code block
+            if (match.index > lastIndex) {
+              const textBefore = text.substring(lastIndex, match.index);
+              if (textBefore.trim()) {
+                result.push({
+                  type: 'text',
+                  value: shouldStripMarkdown
+                    ? stripMarkdown(textBefore)
+                    : textBefore,
+                });
+              }
+            }
+
+            // Add code block
+            result.push({
+              type: 'code',
+              value: match[2].trim(),
+            });
+
+            lastIndex = match.index + match[0].length;
+          }
+
+          // Add remaining text after last code block
+          if (lastIndex < text.length) {
+            const textAfter = text.substring(lastIndex);
+            if (textAfter.trim()) {
+              result.push({
+                type: 'text',
+                value: shouldStripMarkdown
+                  ? stripMarkdown(textAfter)
+                  : textAfter,
+              });
+            }
+          }
+
+          // If no code blocks found, return entire text as single item
+          if (result.length === 0) {
+            result.push({
+              type: 'text',
+              value: shouldStripMarkdown ? stripMarkdown(text) : text,
+            });
+          }
+
+          return result;
+        };
+
+        // Helper to strip markdown (but preserve code blocks which are handled separately)
+        const stripMarkdown = (text: string): string => {
+          return text
+            .replace(/\*\*(.*?)\*\*/g, '$1') // Bold
+            .replace(/\*(.*?)\*/g, '$1') // Italic
+            .replace(/__(.*?)__/g, '$1') // Bold alt
+            .replace(/_(.*?)_/g, '$1') // Italic alt
+            .replace(/`([^`]+)`/g, '$1') // Inline code (but not code blocks)
+            .replace(/#{1,6}\s+(.*)/g, '$1') // Headers
+            .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // Links
+            .replace(/^\s*[-*+]\s+/gm, '') // List items
+            .replace(/^\s*\d+\.\s+/gm, '') // Numbered lists
+            .trim();
+        };
+
         const assistantMessage: Message = {
           role: 'assistant',
           content: fullContent,
@@ -243,16 +309,42 @@ export default function ChatPage({ access_token }: Props) {
         };
 
         if (parsedData.data.text || emojiString) {
-          assistantMessage.displayContent!.push({
-            type: 'text',
-            value: parsedData.data.text
-              ? emojiString + parsedData.data.text
-              : emojiString.trim(),
+          if (!assistantMessage.displayContent) {
+            assistantMessage.displayContent = [];
+          }
+
+          // Process text and extract code blocks
+          const processedParts = processTextWithCodeBlocks(
+            parsedData.data.text || ''
+          );
+
+          processedParts.forEach((part, idx) => {
+            if (part.type === 'code') {
+              assistantMessage.displayContent!.push({
+                type: 'code',
+                value: part.value,
+              });
+            } else {
+              // Add emoji prefix only to first text part
+              const textValue =
+                idx === 0 && emojiString
+                  ? emojiString + part.value
+                  : part.value;
+              if (textValue.trim()) {
+                assistantMessage.displayContent!.push({
+                  type: 'text',
+                  value: textValue,
+                });
+              }
+            }
           });
         }
 
         if (parsedData.data.examples?.length > 0) {
-          assistantMessage.displayContent!.push({
+          if (!assistantMessage.displayContent) {
+            assistantMessage.displayContent = [];
+          }
+          assistantMessage.displayContent.push({
             type: 'html',
             value: `<br/><br/><strong>Examples:</strong>`,
           });
@@ -283,13 +375,16 @@ export default function ChatPage({ access_token }: Props) {
         }
 
         if (parsedData.data.links?.length > 0) {
+          if (!assistantMessage.displayContent) {
+            assistantMessage.displayContent = [];
+          }
           const formattedLinks: string = parsedData.data.links
             .map(
               (link: string) =>
                 `<li><a class="text-blue-400" href="${link}" target="_blank" rel="noopener noreferrer">${link}</a></li>`
             )
             .join('');
-          assistantMessage.displayContent!.push({
+          assistantMessage.displayContent.push({
             type: 'html',
             value: `<br/><br/><strong class="text-emerald-500">Links:</strong><ul class="list-disc list-inside">${formattedLinks}</ul>`,
           });
@@ -307,9 +402,13 @@ export default function ChatPage({ access_token }: Props) {
           (parsedData.data.emojis?.length > 0 ||
             parsedData.data.reaction?.length > 0);
 
-        updateChatHistory(assistantMessage, currentChat?.data.id!, isBouncy);
+        updateChatHistory(assistantMessage, currentChat.data.id, isBouncy);
 
-        if (response_type === 'voice' && parsedData.data.text) {
+        if (
+          response_type === 'voice' &&
+          parsedData.data.text &&
+          parsedData.data.message_id
+        ) {
           await fetchAudioStream(parsedData.data.message_id);
         }
       }
@@ -329,6 +428,8 @@ export default function ChatPage({ access_token }: Props) {
 
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current.src = '';
+        URL.revokeObjectURL(audioRef.current.src);
         audioRef.current = null;
       }
 
@@ -396,19 +497,23 @@ export default function ChatPage({ access_token }: Props) {
       );
 
       const data = await response.json();
-      if (data) {
+      if (data?.data) {
         const chatData = await loadChatHistory();
-        const userMessage: Message = {
-          role: 'user',
-          content: `Be my ${selectedRelationship}`,
-        };
-        const assistantMessage: Message = {
-          role: 'assistant',
-          content: data?.data?.text,
-        };
-        updateChatHistory(userMessage, chatData?.data?.id);
-        updateChatHistory(assistantMessage, chatData?.data?.id);
-        fetchAudioStream(data?.data?.message_id);
+        if (chatData?.data?.id) {
+          const userMessage: Message = {
+            role: 'user',
+            content: `Be my ${selectedRelationship}`,
+          };
+          const assistantMessage: Message = {
+            role: 'assistant',
+            content: data.data.text || '',
+          };
+          updateChatHistory(userMessage, chatData.data.id);
+          updateChatHistory(assistantMessage, chatData.data.id);
+          if (data.data.message_id && response_type === 'voice') {
+            await fetchAudioStream(data.data.message_id);
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to create new chat:', error);
@@ -436,13 +541,21 @@ export default function ChatPage({ access_token }: Props) {
 
     if (audioRef.current) {
       audioRef.current.pause();
+      const src = audioRef.current.src;
+      audioRef.current.src = '';
+      if (src && src.startsWith('blob:')) {
+        URL.revokeObjectURL(src);
+      }
       audioRef.current = null;
     }
     setIsSpeaking(false);
   };
 
   useEffect(() => {
-    createNewChat();
+    if (selectedRelationship && character?.id && !isCreatingChat) {
+      createNewChat();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRelationship]);
 
   useEffect(() => {
@@ -502,7 +615,8 @@ export default function ChatPage({ access_token }: Props) {
     if (character?.id) {
       loadChatHistory();
     }
-  }, [character]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [character?.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -545,7 +659,13 @@ export default function ChatPage({ access_token }: Props) {
       }
 
       const result = await response.json();
-      return result.text || result.data?.text;
+      const transcribedText =
+        result.text || result.data?.text || result.data?.transcription;
+      if (!transcribedText) {
+        console.error('Transcription response:', result);
+        throw new Error('No transcription text found in response');
+      }
+      return transcribedText;
     } catch (error) {
       console.error('Transcription error:', error);
       throw error;
@@ -594,9 +714,14 @@ export default function ChatPage({ access_token }: Props) {
                 const newText = transcribedText.trim();
                 return prev.trim() ? prev + ' ' + newText : newText;
               });
+            } else {
+              toast.error('No transcription received. Please try again.');
             }
           } catch (error) {
             console.error('Failed to transcribe audio:', error);
+            const errorMessage =
+              error instanceof Error ? error.message : 'Transcription failed';
+            toast.error(`Transcription failed: ${errorMessage}`);
           } finally {
             setIsTranscribing(false);
           }
@@ -644,35 +769,47 @@ export default function ChatPage({ access_token }: Props) {
   };
 
   const handleUserMessage = () => {
-    if (!isChatReady || !inputMessage.trim() || isTyping) return;
+    if (
+      !isChatReady ||
+      !inputMessage.trim() ||
+      isTyping ||
+      !currentChat?.data?.id
+    )
+      return;
 
     const userMessage: Message = {
       role: 'user',
       content: inputMessage.trim(),
     };
 
-    updateChatHistory(userMessage, currentChat!.data.id);
+    updateChatHistory(userMessage, currentChat.data.id);
 
     setInputMessage('');
 
-    sendMessage(userMessage, currentChat!.data.id);
+    sendMessage(userMessage, currentChat.data.id);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (!isChatReady || !inputMessage.trim() || isTyping) return;
+      if (
+        !isChatReady ||
+        !inputMessage.trim() ||
+        isTyping ||
+        !currentChat?.data?.id
+      )
+        return;
 
       const userMessage: Message = {
         role: 'user',
         content: inputMessage.trim(),
       };
 
-      updateChatHistory(userMessage, currentChat!.data.id);
+      updateChatHistory(userMessage, currentChat.data.id);
 
       setInputMessage('');
 
-      sendMessage(userMessage, currentChat!.data.id);
+      sendMessage(userMessage, currentChat.data.id);
     }
   };
 
@@ -684,22 +821,25 @@ export default function ChatPage({ access_token }: Props) {
       setDeleteLoading(true);
 
       if (!id) {
-        deleteCharacter(character_id!);
-        deleteCharacter(character_id!);
+        deleteCharacter(character_id);
         const nextCharacter = characters?.[0];
-        setCharacter(nextCharacter!);
-        setChats(
-          chats?.find(
+        if (nextCharacter) {
+          setCharacter(nextCharacter);
+          const nextChat = chats?.find(
             (chat) =>
-              chat?.data?.relationships?.character?.id === nextCharacter?.id
-          )!
-        );
-        setCurrentChat(
-          chats?.find(
-            (chat) =>
-              chat?.data?.relationships?.character?.id === nextCharacter?.id
-          )!
-        );
+              chat?.data?.relationships?.character?.id === nextCharacter.id
+          );
+          if (nextChat) {
+            setChats(nextChat);
+            setCurrentChat(nextChat);
+          } else {
+            setCurrentChat(null);
+          }
+        } else {
+          setCharacter(null);
+          setCurrentChat(null);
+        }
+        setDeleteLoading(false);
         return;
       }
       await useApi(
@@ -709,22 +849,26 @@ export default function ChatPage({ access_token }: Props) {
         },
         access_token
       );
-      deleteChat(id!);
-      deleteCharacter(character_id!);
+      deleteChat(id);
+      deleteCharacter(character_id);
       const nextCharacter = characters?.[0];
-      setCharacter(nextCharacter!);
-      setChats(
-        chats?.find(
+      if (nextCharacter) {
+        setCharacter(nextCharacter);
+        const nextChat = chats?.find(
           (chat) =>
-            chat?.data?.relationships?.character?.id === nextCharacter?.id
-        )!
-      );
-      setCurrentChat(
-        chats?.find(
-          (chat) =>
-            chat?.data?.relationships?.character?.id === nextCharacter?.id
-        )!
-      );
+            chat?.data?.relationships?.character?.id === nextCharacter.id
+        );
+        if (nextChat) {
+          setChats(nextChat);
+          setCurrentChat(nextChat);
+        } else {
+          setCurrentChat(null);
+        }
+      } else {
+        setCharacter(null);
+        setCurrentChat(null);
+      }
+      setDeleteLoading(false);
     } catch (error) {
       setDeleteLoading(false);
       toast('Unable to delete chat', {
@@ -742,14 +886,15 @@ export default function ChatPage({ access_token }: Props) {
       if (!characters?.length) {
         router.push('/');
       }
-      return;
     }
-  }, [characters]);
+  }, [characters, user?.data, router]);
 
   async function handleRelationshipChange(type: string) {
+    if (!currentChat?.data?.id) return;
+
     try {
       await useApi(
-        `/chats/${currentChat?.data?.id}/update-relationship`,
+        `/chats/${currentChat.data.id}/update-relationship`,
         {
           method: 'PATCH',
           body: JSON.stringify({
@@ -764,389 +909,251 @@ export default function ChatPage({ access_token }: Props) {
         role: 'user',
         content: `Be my ${type}`,
       };
-      updateChatHistory(userMessage, currentChat?.data?.id!);
-      sendMessage(userMessage, currentChat?.data?.id!);
-    } catch (error) {}
+      updateChatHistory(userMessage, currentChat.data.id);
+      sendMessage(userMessage, currentChat.data.id);
+    } catch (error) {
+      console.error('Failed to update relationship:', error);
+    }
   }
 
   const introVideo = character?.relationships?.videos?.find(
     (video) => video.attributes.type === 'intro'
   );
 
-  const showVideoIntro = character?.attributes?.video_played;
+  const showVideoIntro = !character?.attributes?.video_played;
 
   useEffect(() => {
+    if (!character?.id) return;
+
     const handleBeforeUnload = () => {
-      updateCharacterVideoPlayed(character?.id!);
+      updateCharacterVideoPlayed(character.id);
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, []);
+  }, [character?.id, updateCharacterVideoPlayed]);
 
   return (
-    <div className="flex h-screen bg-gray-900 overflow-x-hidden">
+    <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 overflow-x-hidden">
       {isMobile && sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black opacity-50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {isMobile && isRightSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black opacity-50 z-40 md:hidden"
-          onClick={() => setIsRightSidebarOpen(false)}
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => {
+            setIsRightSidebarOpen(false);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('rightSidebarOpen', 'false');
+            }
+          }}
         />
       )}
 
       {/* Sidebar */}
-      <div
-        className={`
-        ${isMobile ? 'fixed left-0 top-0 h-full z-[60]' : 'relative'}
-        ${sidebarOpen ? (isMobile ? 'w-80' : 'w-64') : 'w-0'} 
-        transition-all duration-300 bg-gray-900 border-r border-gray-700 flex flex-col overflow-hidden
-        ${isMobile && !sidebarOpen ? '-translate-x-full pointer-events-none' : 'translate-x-0 pointer-events-auto'}
-      `}
-      >
-        <div className="relative p-3 border-b border-gray-700 py-4">
-          <Link
-            href={'/'}
-            onClick={() => {
-              setCurrentChat(null);
-              updateCharacterVideoPlayed(character?.id!);
-            }}
-            className="flex items-center w-full p-2 pr-10 text-gray-200 hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            <span className="text-sm font-medium">New chat</span>
-          </Link>
-          {sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
-              aria-label="Close sidebar"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-          )}
-        </div>
+      <ChatSidebar
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        isMobile={isMobile}
+        deleteLoading={deleteLoading}
+        handleDeleteChat={handleDeleteChat}
+        relationshipTypes={relationshipTypes}
+        selectedRelationship={selectedRelationship}
+        handleRelationshipChange={handleRelationshipChange}
+        highlightRelPrompt={highlightRelPrompt}
+        relTriggerRef={relTriggerRef}
+        isCreatingChat={isCreatingChat}
+      />
 
-        <ChatList
-          characters={characters}
-          chats={chats}
-          currentChat={currentChat!}
-          setCharacter={setCharacter}
-          deleteLoading={deleteLoading}
-          updateCharacterVideoPlayed={() => {
-            updateCharacterVideoPlayed(character?.id!);
-          }}
-          handleDeleteChat={(id: string, character_id: string) => {
-            handleDeleteChat(id, character_id);
-          }}
+      <div className="flex-1 flex flex-col bg-white overflow-x-hidden">
+        <ChatHeader
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          isRightSidebarOpen={isRightSidebarOpen}
+          setIsRightSidebarOpen={setIsRightSidebarOpen}
+          isMobile={isMobile}
+          relationshipTypes={relationshipTypes}
+          selectedRelationship={selectedRelationship}
+          handleRelationshipChange={handleRelationshipChange}
+          highlightRelPrompt={highlightRelPrompt}
+          relTriggerRef={relTriggerRef}
+          isCreatingChat={isCreatingChat}
         />
 
-        <div className="p-3 border-t border-gray-700">
-          <Link
-            href={'/profile'}
-            className="flex cursor-pointer items-center space-x-3 w-full text-left text-gray-400 hover:text-white"
-          >
-            <Image
-              src={user?.data?.attributes?.avatar || '/default-avatar.png'}
-              alt={character?.attributes?.name || 'profile'}
-              width={32}
-              height={32}
-              className="rounded-full"
-            />
-            <span>Profile settings</span>
-          </Link>
-        </div>
-      </div>
-
-      <div className="flex-1 flex flex-col bg-gray-800 overflow-x-hidden">
-        <div className="border-b border-gray-700 p-4 overflow-x-hidden">
-          {/*
-            Compact header only when the right sidebar is open AND the viewport is narrower than 1280px.
-            This avoids stacking on wide desktops where there is enough space.
-          */}
-          <div
-            className={`relative flex flex-col gap-3 ${
-              isRightSidebarOpen && viewportWidth < 1280
-                ? ''
-                : 'lg:flex-row lg:items-center lg:justify-between'
-            } pl-12 pr-12`}
-          >
-            {/* Mobile sidebar toggles pinned to corners */}
-            {!sidebarOpen && (
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="absolute top-2 left-2 p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
-              >
-                <MessageSquare className="w-5 h-5" />
-              </button>
-            )}
-            {!isRightSidebarOpen && (
-              <button
-                onClick={() => setIsRightSidebarOpen(true)}
-                className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800 transition-colors"
-              >
-                <PanelRight className="w-5 h-5" />
-              </button>
-            )}
-            {/* Left utility (sidebar toggle) */}
-            <div className="hidden lg:order-1"></div>
-
-            {/* Plan/Credits/Response type and sidebar buttons */}
-            <div className="flex flex-col items-start gap-2 lg:flex-row lg:items-center lg:space-x-5 lg:order-2">
-              {isLoggedIn && plan && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <h1 className="capitalize border rounded-lg flex items-center gap-1 px-3 py-1 font-semibold text-gray-100 cursor-pointer">
-                      {((plan as any)?.attributes?.name ?? (plan as any)?.data?.attributes?.name ?? 'Plan')}
-                    </h1>
-                  </PopoverTrigger>
-                  <PopoverContent className="border bg-gray-700 border-gray-400">
-                    <div className="space-y-3 text-white">
-                      <h3 className="text-xl font-semibold">
-                        {((plan as any)?.attributes?.name ?? (plan as any)?.data?.attributes?.name ?? 'Plan')}
-                      </h3>
-                      {(((plan as any)?.attributes?.description) ?? ((plan as any)?.data?.attributes?.description)) && (
-                        <p className="text-sm whitespace-pre-wrap">
-                          {((plan as any)?.attributes?.description ?? (plan as any)?.data?.attributes?.description)}
-                        </p>
-                      )}
-                      <div className="text-sm space-y-1">
-                        {((((plan as any)?.attributes?.price) ?? ((plan as any)?.data?.attributes?.price)) !== undefined) && (
-                          <div>
-                            <span className="text-gray-300">Price: </span>
-                            <span className="font-medium">
-                              {((plan as any)?.attributes?.price ?? (plan as any)?.data?.attributes?.price)}
-                            </span>
-                          </div>
-                        )}
-                        {(((plan as any)?.attributes?.duration) ?? ((plan as any)?.data?.attributes?.duration)) && (
-                          <div>
-                            <span className="text-gray-300">Duration: </span>
-                            <span className="font-medium">
-                              {((plan as any)?.attributes?.duration ?? (plan as any)?.data?.attributes?.duration)}{' '}
-                              {((plan as any)?.attributes?.duration_unit ?? (plan as any)?.data?.attributes?.duration_unit)}
-                            </span>
-                          </div>
-                        )}
-                        {(userPlan as any)?.attributes?.start_date && (
-                          (() => {
-                            const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as string | undefined;
-                            const start = new Date((userPlan as any).attributes.start_date);
-                            const end = new Date((userPlan as any).attributes.end_date);
-                            const isFreeOrBonus = slug === 'free' || slug === 'bonus';
-                            if (isFreeOrBonus) {
-                              return (
-                                <div>
-                                  <span className="text-gray-300">Period: </span>
-                                  <span className="font-medium">
-                                    {start.toLocaleDateString()} - {end.toLocaleDateString()}
-                                  </span>
-                                </div>
-                              );
-                            }
-                            const nextCharge = new Date(end);
-                            nextCharge.setDate(nextCharge.getDate() + 1);
-                            return (
-                              <>
-                                <div>
-                                  <span className="text-gray-300">Last paid on: </span>
-                                  <span className="font-medium">{start.toLocaleDateString()}</span>
-                                </div>
-                                <div>
-                                  <span className="text-gray-300">Next charge date: </span>
-                                  <span className="font-medium">{nextCharge.toLocaleDateString()}</span>
-                                </div>
-                              </>
-                            );
-                          })()
-                        )}
-                      </div>
-
-                      {(() => {
-                        const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as
-                          | string
-                          | undefined;
-                        return slug && (slug === 'free' || slug === 'bonus');
-                      })() && (
-                        <div className="pt-2">
-                          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => router.push('/plans?from=chat')}>
-                            Upgrade to Premium
-                          </Button>
-                        </div>
-                      )}
-
-                      {(() => {
-                        const slug = (((plan as any)?.attributes?.slug) ?? ((plan as any)?.data?.attributes?.slug)) as
-                          | string
-                          | undefined;
-                        return slug && slug !== 'free' && slug !== 'bonus';
-                      })() && (
-                        <div className="pt-2">
-                          <Button
-                            className="border border-emerald-500 text-emerald-400 hover:bg-emerald-500/10 bg-transparent"
-                            onClick={() => router.push('/credits?from=chat')}
-                          >
-                            Buy credits
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              )}
-              {isLoggedIn && <CreditsComponent />}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <h1 className="capitalize border rounded-lg flex items-center gap-1 px-3 py-1 font-semibold text-gray-100 cursor-pointer">
-                    {response_type} <Edit2 size={15} />
-                  </h1>
-                </PopoverTrigger>
-                <PopoverContent className="border bg-gray-700 border-gray-400">
-                  <div className="space-y-4">
-                    <RadioGroup
-                      onValueChange={(res) => {
-                        setResponseType(res);
-                        return res;
-                      }}
-                      value={response_type}
-                    >
-                      {[
-                        {
-                          value: 'voice',
-                          label: 'Voice',
-                        },
-                        {
-                          value: 'text',
-                          label: 'Text',
-                        },
-                      ].map((item) => (
-                        <div
-                          key={item.label}
-                          className="flex items-center cursor-pointer text-white space-x-2"
-                        >
-                          <RadioGroupItem value={item.value} id={item.value} />
-                          <Label htmlFor={item.value}>{item.label}</Label>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                  </div>
-                </PopoverContent>
-              </Popover>
-
-              {/* Inline sidebar toggles hidden globally to keep corner icons exclusive */}
-              <div className="hidden" />
-            </div>
-
-            {/* Relationship selector - placed last on mobile for visibility */}
-            <div className="flex items-center gap-x-1 lg:order-3 order-last">
-              <Popover>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <PopoverTrigger asChild>
-                      <Button
-                        disabled={!currentChat}
-                        className="text-lg flex items-center font-semibold capitalize text-gray-100 cursor-pointer"
-                        ref={relTriggerRef}
-                      >
-                        <span className="font-bold">
-                          {character?.attributes?.name}
-                        </span>
-                        {currentChat?.data?.attributes?.relationship_type &&
-                          ` (${currentChat?.data?.attributes?.relationship_type})`}{' '}
-                        <div className="h-3 w-3 bg-green-500 rounded-full"></div>
-                      </Button>
-                    </PopoverTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Change relationship</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                <PopoverContent className="border bg-gray-700 border-gray-400">
-                  <div className="space-y-4">
-                    <h3
-                      className={`text-xl font-semibold text-white ${
-                        highlightRelPrompt
-                          ? 'ring-2 ring-emerald-400 rounded-md animate-pulse'
-                          : ''
-                      }`}
-                    >
-                      Choose a relationship
-                    </h3>
-                    <div className="flex flex-wrap justify-self-auto gap-2 text-sm">
-                      {relationshipTypes.map((type) => {
-                        const isCurrent =
-                          currentChat?.data?.attributes?.relationship_type === type;
-                        const isSelected = selectedRelationship === type || isCurrent;
-                        return (
-                          <Button
-                            key={type}
-                            variant={isSelected ? 'default' : 'outline'}
-                            className={`text-white capitalize border-white bg-transparent ${
-                              isSelected && 'border bg-black/60 text-white'
-                            }`}
-                            onClick={() => {
-                              if (!isCurrent) handleRelationshipChange(type);
-                            }}
-                            disabled={isCreatingChat || isCurrent}
-                          >
-                            {isCreatingChat && isSelected && (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            )}
-                            {type}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-        </div>
-
         {!isLoading && !currentChat && character && (
-          <div className="flex flex-col items-center justify-center h-full text-center p-4">
+          <div className="flex flex-col items-center justify-center h-full text-center p-3 sm:p-4">
             {introVideo && (
               <video
                 src={introVideo?.attributes?.url}
                 autoPlay={!showVideoIntro}
                 controls
-                className="w-full max-w-md rounded-xl shadow-lg"
+                className="w-full max-w-[calc(100vw-2rem)] sm:max-w-md rounded-xl shadow-lg"
                 poster={character?.attributes?.avatar}
+                preload="metadata"
+                onError={(e) => {
+                  const videoElement = e.currentTarget as HTMLVideoElement;
+                  const errorDetails = {
+                    error: videoElement.error,
+                    errorCode: videoElement.error?.code,
+                    errorMessage: videoElement.error?.message,
+                    networkState: videoElement.networkState,
+                    readyState: videoElement.readyState,
+                    src: videoElement.src,
+                    currentSrc: videoElement.currentSrc,
+                    videoUrl: introVideo?.attributes?.url,
+                    characterId: character?.id,
+                    characterName: character?.attributes?.name,
+                    videoType: introVideo?.attributes?.type,
+                    timestamp: new Date().toISOString(),
+                  };
+
+                  console.error(
+                    'Video loading error - Full details:',
+                    errorDetails
+                  );
+                  console.error('Video element state:', {
+                    networkState: videoElement.networkState,
+                    readyState: videoElement.readyState,
+                    paused: videoElement.paused,
+                    ended: videoElement.ended,
+                    duration: videoElement.duration,
+                    currentTime: videoElement.currentTime,
+                    buffered:
+                      videoElement.buffered.length > 0
+                        ? {
+                            start: videoElement.buffered.start(0),
+                            end: videoElement.buffered.end(0),
+                          }
+                        : null,
+                  });
+
+                  if (videoElement.error) {
+                    const errorMessages: Record<number, string> = {
+                      1: 'MEDIA_ERR_ABORTED - The video download was aborted',
+                      2: 'MEDIA_ERR_NETWORK - A network error occurred',
+                      3: 'MEDIA_ERR_DECODE - The video could not be decoded',
+                      4: 'MEDIA_ERR_SRC_NOT_SUPPORTED - The video format is not supported',
+                    };
+                    console.error(
+                      'Video error code:',
+                      videoElement.error.code,
+                      '-',
+                      errorMessages[videoElement.error.code] || 'Unknown error'
+                    );
+                    console.error(
+                      'Video error message:',
+                      videoElement.error.message
+                    );
+                  }
+
+                  toast.error(
+                    'Failed to load intro video. Please try refreshing.'
+                  );
+                }}
+                onLoadStart={() => {
+                  const videoElement = document.querySelector(
+                    'video[preload="metadata"]'
+                  ) as HTMLVideoElement;
+                  console.log('Video loading started:', {
+                    src: introVideo?.attributes?.url,
+                    characterId: character?.id,
+                    characterName: character?.attributes?.name,
+                    timestamp: new Date().toISOString(),
+                  });
+                }}
+                onCanPlay={() => {
+                  const videoElement = document.querySelector(
+                    'video[preload="metadata"]'
+                  ) as HTMLVideoElement;
+                  console.log('Video can play:', {
+                    duration: videoElement?.duration,
+                    readyState: videoElement?.readyState,
+                    networkState: videoElement?.networkState,
+                    timestamp: new Date().toISOString(),
+                  });
+                }}
+                onLoadedMetadata={() => {
+                  const videoElement = document.querySelector(
+                    'video[preload="metadata"]'
+                  ) as HTMLVideoElement;
+                  console.log('Video metadata loaded:', {
+                    duration: videoElement?.duration,
+                    videoWidth: videoElement?.videoWidth,
+                    videoHeight: videoElement?.videoHeight,
+                    readyState: videoElement?.readyState,
+                    timestamp: new Date().toISOString(),
+                  });
+                }}
+                onLoadedData={() => {
+                  console.log('Video data loaded:', {
+                    characterId: character?.id,
+                    timestamp: new Date().toISOString(),
+                  });
+                }}
+                onProgress={() => {
+                  const videoElement = document.querySelector(
+                    'video[preload="metadata"]'
+                  ) as HTMLVideoElement;
+                  if (videoElement && videoElement.buffered.length > 0) {
+                    const bufferedEnd = videoElement.buffered.end(
+                      videoElement.buffered.length - 1
+                    );
+                    const duration = videoElement.duration;
+                    if (duration > 0) {
+                      const bufferedPercent = (bufferedEnd / duration) * 100;
+                      console.log('Video buffering progress:', {
+                        bufferedPercent: `${bufferedPercent.toFixed(2)}%`,
+                        bufferedEnd,
+                        duration,
+                        timestamp: new Date().toISOString(),
+                      });
+                    }
+                  }
+                }}
+                onStalled={() => {
+                  console.warn('Video stalled - buffering:', {
+                    characterId: character?.id,
+                    timestamp: new Date().toISOString(),
+                  });
+                }}
+                onSuspend={() => {
+                  console.warn('Video loading suspended:', {
+                    characterId: character?.id,
+                    timestamp: new Date().toISOString(),
+                  });
+                }}
               >
                 Your browser does not support the video tag.
               </video>
             )}
 
             {/* Relationship Selection */}
-            <div className="mt-8 space-y-4">
+            <div className="mt-6 sm:mt-8 space-y-3 sm:space-y-4 px-4">
               <h3
                 ref={inlineRelHeadingRef}
-                className={`text-xl font-semibold text-white ${
+                className={`text-lg sm:text-xl font-bold text-slate-900 text-center ${
                   highlightRelPrompt
-                    ? 'ring-2 ring-emerald-400 rounded-md animate-pulse'
+                    ? 'ring-2 ring-pink-400 rounded-lg animate-pulse'
                     : ''
                 }`}
               >
                 Choose a relationship
               </h3>
-              <div className="flex flex-wrap justify-center gap-2">
+              <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
                 {relationshipTypes.map((type) => (
                   <Button
                     key={type}
                     variant={
                       selectedRelationship === type ? 'default' : 'outline'
                     }
-                    className={`bg-white text-black ${
+                    className={`bg-white text-slate-700 border-slate-300 hover:bg-slate-50 text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 active:scale-95 touch-manipulation ${
                       selectedRelationship === type &&
-                      'border bg-emerald-500 text-white'
+                      'bg-gradient-to-r from-pink-500 to-purple-500 text-white border-0 shadow-md hover:shadow-lg'
                     }`}
                     onClick={() => setSelectedRelationship(type)}
                     disabled={isCreatingChat && selectedRelationship === type}
@@ -1178,44 +1185,54 @@ export default function ChatPage({ access_token }: Props) {
                           : ''
                       }`}
                     >
-                      <div className="flex-shrink-0">
+                      <div className="shrink-0">
                         {message.role === 'assistant' ? (
-                          <Image
-                            src={
-                              character?.attributes?.avatar ||
-                              '/default-avatar.png'
-                            }
-                            alt={character?.attributes?.name!}
-                            width={32}
-                            height={32}
-                            className="rounded-full"
-                          />
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full ring-2 ring-slate-200 overflow-hidden bg-gradient-to-br from-pink-100 to-purple-100">
+                            <Image
+                              src={
+                                character?.attributes?.avatar ||
+                                '/default-avatar.png'
+                              }
+                              alt={
+                                character?.attributes?.name ||
+                                'Character avatar'
+                              }
+                              width={40}
+                              height={40}
+                              className="rounded-full w-full h-full object-cover"
+                            />
+                          </div>
                         ) : (
-                          <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full ring-2 ring-emerald-200 overflow-hidden bg-gradient-to-br from-emerald-100 to-blue-100">
                             <Image
                               src={
                                 user?.data?.attributes?.avatar ||
                                 '/default-avatar.png'
                               }
-                              alt={character?.attributes?.name!}
-                              width={32}
-                              height={32}
-                              className="rounded-full"
+                              alt={
+                                character?.attributes?.name ||
+                                'Character avatar'
+                              }
+                              width={40}
+                              height={40}
+                              className="rounded-full w-full h-full object-cover"
                             />
                           </div>
                         )}
                       </div>
                       <div
-                        className={`flex-1 max-w-[80%] flex ${
-                          message.role === 'user' ? 'justify-end' : 'justify-start'
+                        className={`flex-1 max-w-[85%] sm:max-w-[80%] flex ${
+                          message.role === 'user'
+                            ? 'justify-end'
+                            : 'justify-start'
                         }`}
                       >
                         {message.messageType === 'video' ? (
-                          <div className="inline-block bg-gray-800 rounded-lg overflow-hidden">
+                          <div className="inline-block bg-slate-100 rounded-2xl overflow-hidden shadow-lg max-w-full">
                             <video
                               src={message.videoUrl}
                               controls
-                              className="w-80 h-auto rounded-lg"
+                              className="w-full max-w-xs sm:max-w-sm md:w-80 h-auto rounded-2xl"
                               poster={character?.attributes?.avatar}
                             >
                               Your browser does not support the video tag.
@@ -1224,126 +1241,282 @@ export default function ChatPage({ access_token }: Props) {
                         ) : (
                           <div className={`relative inline-block max-w-full`}>
                             <div
-                              className={`inline-block p-3 rounded-lg ${
+                              className={`inline-block p-3 sm:p-4 rounded-2xl shadow-sm ${
                                 message.role === 'user'
-                                  ? 'bg-emerald-500 text-white'
-                                  : 'bg-gray-800 text-gray-100'
+                                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md'
+                                  : 'bg-slate-100 text-slate-900 border border-slate-200'
                               }`}
                             >
-                            {message.displayContent &&
-                            message.displayContent.length > 0 ? (
-                              message.displayContent.map(
-                                (item, contentIndex) => {
-                                  if (item.type === 'code') {
-                                    return (
-                                      <div key={contentIndex} dir="ltr" style={{ textAlign: 'left', maxWidth: '100%' }}>
-                                        <SyntaxHighlighter
-                                          language="python"
-                                          style={oneDark}
-                                          customStyle={{
-                                            borderRadius: '0.5rem',
-                                            marginBottom: '0.75rem',
-                                            marginTop: '0.75rem',
+                              {message.displayContent &&
+                              message.displayContent.length > 0 ? (
+                                message.displayContent.map(
+                                  (item, contentIndex) => {
+                                    if (item.type === 'code') {
+                                      return (
+                                        <div
+                                          key={contentIndex}
+                                          dir="ltr"
+                                          style={{
+                                            textAlign: 'left',
                                             maxWidth: '100%',
-                                            overflowX: 'auto',
-                                            whiteSpace: 'pre-wrap',
-                                            wordBreak: 'break-word',
                                           }}
-                                          wrapLongLines
+                                        >
+                                          <SyntaxHighlighter
+                                            language="python"
+                                            style={oneDark}
+                                            customStyle={{
+                                              borderRadius: '0.5rem',
+                                              marginBottom: '0.75rem',
+                                              marginTop: '0.75rem',
+                                              maxWidth: '100%',
+                                              overflowX: 'auto',
+                                              whiteSpace: 'pre-wrap',
+                                              wordBreak: 'break-word',
+                                            }}
+                                            wrapLongLines
+                                          >
+                                            {item.value}
+                                          </SyntaxHighlighter>
+                                        </div>
+                                      );
+                                    } else if (item.type === 'html') {
+                                      return (
+                                        <div
+                                          key={contentIndex}
+                                          className={`message-bubble whitespace-pre-wrap break-words max-w-full ${
+                                            message.isBouncyEmoji &&
+                                            contentIndex === 0
+                                              ? 'bounce-effect text-4xl'
+                                              : 'text-sm'
+                                          }`}
+                                          dir="auto"
+                                          dangerouslySetInnerHTML={{
+                                            __html: item.value,
+                                          }}
+                                        />
+                                      );
+                                    } else if (item.type === 'text') {
+                                      const textClasses = message.isBouncyEmoji
+                                        ? 'bounce-effect text-4xl'
+                                        : 'text-sm whitespace-pre-wrap break-words max-w-full';
+                                      return (
+                                        <div
+                                          key={contentIndex}
+                                          className={`message-bubble ${textClasses}`}
+                                          dir="auto"
                                         >
                                           {item.value}
-                                        </SyntaxHighlighter>
-                                      </div>
-                                    );
-                                  } else if (item.type === 'html') {
-                                    return (
-                                      <div
-                                        key={contentIndex}
-                                        className={`message-bubble whitespace-pre-wrap break-words max-w-full ${
-                                          message.isBouncyEmoji &&
-                                          contentIndex === 0
-                                            ? 'bounce-effect text-4xl'
-                                            : 'text-sm'
-                                        }`}
-                                        dir="auto"
-                                        dangerouslySetInnerHTML={{
-                                          __html: item.value,
-                                        }}
-                                      />
-                                    );
-                                  } else if (item.type === 'text') {
-                                    const textClasses = message.isBouncyEmoji
-                                      ? 'bounce-effect text-4xl'
-                                      : 'text-sm whitespace-pre-wrap break-words max-w-full';
-                                    return (
-                                      <div
-                                        key={contentIndex}
-                                        className={`message-bubble ${textClasses}`}
-                                        dir="auto"
-                                      >
-                                        {item.value}
-                                      </div>
-                                    );
+                                        </div>
+                                      );
+                                    }
+                                    return null;
                                   }
-                                  return null;
-                                }
-                              )
-                            ) : (
-                              <div
-                                className={`message-bubble whitespace-pre-wrap break-words max-w-full ${
-                                  message.isBouncyEmoji
-                                    ? 'bounce-effect text-4xl'
-                                    : 'text-sm'
-                                }`}
-                                dir="auto"
-                                dangerouslySetInnerHTML={{
-                                  __html: message.content,
-                                }}
-                              />
-                            )}
+                                )
+                              ) : (
+                                <div
+                                  className={`message-bubble whitespace-pre-wrap break-words max-w-full ${
+                                    message.isBouncyEmoji
+                                      ? 'bounce-effect text-4xl'
+                                      : 'text-sm'
+                                  }`}
+                                  dir="auto"
+                                >
+                                  {response_type === 'text' ? (
+                                    // For text mode, process content and extract code blocks
+                                    (() => {
+                                      const stripMarkdown = (
+                                        text: string
+                                      ): string => {
+                                        return text
+                                          .replace(/\*\*(.*?)\*\*/g, '$1')
+                                          .replace(/\*(.*?)\*/g, '$1')
+                                          .replace(/__(.*?)__/g, '$1')
+                                          .replace(/_(.*?)_/g, '$1')
+                                          .replace(/`([^`]+)`/g, '$1')
+                                          .replace(/#{1,6}\s+(.*)/g, '$1')
+                                          .replace(
+                                            /\[([^\]]+)\]\([^\)]+\)/g,
+                                            '$1'
+                                          )
+                                          .replace(/^\s*[-*+]\s+/gm, '')
+                                          .replace(/^\s*\d+\.\s+/gm, '')
+                                          .trim();
+                                      };
+
+                                      const codeBlockRegex =
+                                        /```(\w+)?\n([\s\S]*?)```/g;
+                                      const parts: Array<{
+                                        type: 'text' | 'code';
+                                        value: string;
+                                      }> = [];
+                                      let lastIndex = 0;
+                                      let match;
+
+                                      while (
+                                        (match = codeBlockRegex.exec(
+                                          message.content
+                                        )) !== null
+                                      ) {
+                                        if (match.index > lastIndex) {
+                                          const textBefore =
+                                            message.content.substring(
+                                              lastIndex,
+                                              match.index
+                                            );
+                                          if (textBefore.trim()) {
+                                            parts.push({
+                                              type: 'text',
+                                              value: stripMarkdown(textBefore),
+                                            });
+                                          }
+                                        }
+                                        parts.push({
+                                          type: 'code',
+                                          value: match[2].trim(),
+                                        });
+                                        lastIndex =
+                                          match.index + match[0].length;
+                                      }
+
+                                      if (lastIndex < message.content.length) {
+                                        const textAfter =
+                                          message.content.substring(lastIndex);
+                                        if (textAfter.trim()) {
+                                          parts.push({
+                                            type: 'text',
+                                            value: stripMarkdown(textAfter),
+                                          });
+                                        }
+                                      }
+
+                                      if (parts.length === 0) {
+                                        return stripMarkdown(message.content);
+                                      }
+
+                                      return (
+                                        <>
+                                          {parts.map((part, idx) => {
+                                            if (part.type === 'code') {
+                                              return (
+                                                <div
+                                                  key={idx}
+                                                  dir="ltr"
+                                                  style={{
+                                                    textAlign: 'left',
+                                                    maxWidth: '100%',
+                                                    marginTop: '0.75rem',
+                                                    marginBottom: '0.75rem',
+                                                  }}
+                                                >
+                                                  <SyntaxHighlighter
+                                                    language="python"
+                                                    style={oneDark}
+                                                    customStyle={{
+                                                      borderRadius: '0.5rem',
+                                                      maxWidth: '100%',
+                                                      overflowX: 'auto',
+                                                      whiteSpace: 'pre-wrap',
+                                                      wordBreak: 'break-word',
+                                                    }}
+                                                    wrapLongLines
+                                                  >
+                                                    {part.value}
+                                                  </SyntaxHighlighter>
+                                                </div>
+                                              );
+                                            }
+                                            return (
+                                              <span key={idx}>
+                                                {part.value}
+                                              </span>
+                                            );
+                                          })}
+                                        </>
+                                      );
+                                    })()
+                                  ) : (
+                                    // For voice mode, render HTML (legacy behavior)
+                                    <span
+                                      dangerouslySetInnerHTML={{
+                                        __html: message.content,
+                                      }}
+                                    />
+                                  )}
+                                </div>
+                              )}
                             </div>
                             {message.role === 'assistant' &&
                               response_type === 'voice' &&
                               isSpeaking &&
                               index === lastAssistantIndex && (
                                 <div className="pointer-events-none absolute inset-0 rounded-lg overflow-hidden">
+                                  {/* Subtle breathing glow effect */}
                                   <div
-                                    className="w-full h-full opacity-100"
+                                    className="absolute inset-0 rounded-lg"
                                     style={{
                                       background:
-                                        'linear-gradient(120deg, rgba(255,99,132,0.95), rgba(255,205,86,0.95), rgba(54,162,235,0.95), rgba(153,102,255,0.95))',
-                                      backgroundSize: '300% 300%',
-                                      animation: 'rainbowSheen 8.4s ease-in-out infinite',
-                                      backdropFilter: 'blur(4px)'
+                                        'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.12) 100%)',
+                                      animation:
+                                        'gentleBreath 3s ease-in-out infinite',
                                     }}
                                   />
+                                  {/* Subtle border pulse */}
                                   <div
-                                    className="absolute top-0 right-0 h-full"
+                                    className="absolute inset-0 rounded-lg border-2"
                                     style={{
-                                      width: '33%',
-                                      backgroundImage: `url(${character?.attributes?.avatar || '/default-avatar.png'})`,
-                                      backgroundSize: 'cover',
-                                      backgroundPosition: 'center',
-                                      backgroundRepeat: 'no-repeat',
-                                      opacity: 0.32,
-                                      mixBlendMode: 'soft-light',
-                                      animation: 'pulseGlow 2.6s ease-in-out infinite'
+                                      borderColor: 'rgba(16, 185, 129, 0.3)',
+                                      animation:
+                                        'borderPulse 2.5s ease-in-out infinite',
                                     }}
                                   />
+                                  {/* Small audio wave indicator */}
                                   <div
-                                    className="absolute inset-0 opacity-50"
+                                    className="absolute bottom-2 right-2 flex items-center gap-1"
                                     style={{
-                                      background:
-                                        'repeating-conic-gradient(from 0deg, rgba(255,255,255,0.18) 0deg, rgba(255,255,255,0.18) 6deg, transparent 8deg, transparent 16deg)',
-                                      transform: 'rotate(0deg)',
-                                      animation: 'rotateRays 30s linear infinite',
-                                      mixBlendMode: 'soft-light',
-                                      WebkitMaskImage:
-                                        'radial-gradient(circle at 50% 50%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 35%, rgba(0,0,0,0.5) 65%, rgba(0,0,0,0) 100%)',
-                                      maskImage:
-                                        'radial-gradient(circle at 50% 50%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 35%, rgba(0,0,0,0.5) 65%, rgba(0,0,0,0) 100%)'
+                                      opacity: 0.6,
                                     }}
-                                  />
+                                  >
+                                    <div
+                                      className="w-1 bg-emerald-400 rounded-full"
+                                      style={{
+                                        height: '4px',
+                                        animation:
+                                          'wave1 1.2s ease-in-out infinite',
+                                      }}
+                                    />
+                                    <div
+                                      className="w-1 bg-emerald-400 rounded-full"
+                                      style={{
+                                        height: '6px',
+                                        animation:
+                                          'wave2 1.2s ease-in-out infinite 0.2s',
+                                      }}
+                                    />
+                                    <div
+                                      className="w-1 bg-emerald-400 rounded-full"
+                                      style={{
+                                        height: '8px',
+                                        animation:
+                                          'wave3 1.2s ease-in-out infinite 0.4s',
+                                      }}
+                                    />
+                                    <div
+                                      className="w-1 bg-emerald-400 rounded-full"
+                                      style={{
+                                        height: '6px',
+                                        animation:
+                                          'wave2 1.2s ease-in-out infinite 0.6s',
+                                      }}
+                                    />
+                                    <div
+                                      className="w-1 bg-emerald-400 rounded-full"
+                                      style={{
+                                        height: '4px',
+                                        animation:
+                                          'wave1 1.2s ease-in-out infinite 0.8s',
+                                      }}
+                                    />
+                                  </div>
                                 </div>
                               )}
                           </div>
@@ -1361,22 +1534,26 @@ export default function ChatPage({ access_token }: Props) {
 
               {isTyping && (
                 <div className="flex items-start space-x-3">
-                  <Image
-                    src={character?.attributes?.avatar!}
-                    alt={character?.attributes?.name!}
-                    width={32}
-                    height={32}
-                    className="rounded-full"
-                  />
-                  <div className="bg-gray-800 rounded-lg p-3">
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div className="w-10 h-10 rounded-full ring-2 ring-slate-200 overflow-hidden bg-gradient-to-br from-pink-100 to-purple-100">
+                    <Image
+                      src={
+                        character?.attributes?.avatar || '/default-avatar.png'
+                      }
+                      alt={character?.attributes?.name || 'Character avatar'}
+                      width={40}
+                      height={40}
+                      className="rounded-full"
+                    />
+                  </div>
+                  <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 shadow-sm">
+                    <div className="flex space-x-1.5">
+                      <div className="w-2.5 h-2.5 bg-pink-400 rounded-full animate-bounce"></div>
                       <div
-                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        className="w-2.5 h-2.5 bg-purple-400 rounded-full animate-bounce"
                         style={{ animationDelay: '0.1s' }}
                       ></div>
                       <div
-                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        className="w-2.5 h-2.5 bg-pink-400 rounded-full animate-bounce"
                         style={{ animationDelay: '0.2s' }}
                       ></div>
                     </div>
@@ -1389,28 +1566,30 @@ export default function ChatPage({ access_token }: Props) {
         </div>
 
         {/* Input Area */}
-        <div className="border-gray-700 py-4">
+        <div className="border-t border-slate-200 bg-white/80 backdrop-blur-sm py-4">
           {/* Recording Status */}
           {(isRecording || isTranscribing) && (
-            <div className="mb-3 text-center">
+            <div className="mb-2 sm:mb-3 text-center px-4">
               {isRecording && (
-                <div className="flex items-center justify-center space-x-2 text-red-500">
-                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm">
+                <div className="flex items-center justify-center space-x-2 text-red-600">
+                  <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-red-500 rounded-full animate-pulse ring-2 ring-red-200"></div>
+                  <span className="text-xs sm:text-sm font-medium">
                     Recording... {formatTime(recordingTime)}
                   </span>
                 </div>
               )}
               {isTranscribing && (
-                <div className="flex items-center justify-center space-x-2 text-emerald-500">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm">Transcribing...</span>
+                <div className="flex items-center justify-center space-x-2 text-emerald-600">
+                  <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-emerald-500 rounded-full animate-pulse ring-2 ring-emerald-200"></div>
+                  <span className="text-xs sm:text-sm font-medium">
+                    Transcribing...
+                  </span>
                 </div>
               )}
             </div>
           )}
 
-          <div className="max-w-3xl mx-auto relative p-4">
+          <div className="max-w-3xl mx-auto relative p-3 sm:p-4">
             {!isChatReady && (
               <button
                 type="button"
@@ -1419,85 +1598,56 @@ export default function ChatPage({ access_token }: Props) {
                 className="absolute inset-0 z-10 bg-transparent cursor-not-allowed"
               />
             )}
-            <div className="flex items-center justify-center gap-3">
-              {/* Voice Recording Button */}
-              <button
-                onClick={isRecording ? stopRecording : startRecording}
-                disabled={!isChatReady || isTranscribing}
-                className={`hidden lg:inline-flex flex-shrink-0 p-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  isRecording
-                    ? 'bg-red-500 text-white animate-pulse'
-                    : isTranscribing
-                    ? 'bg-yellow-500 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                {isRecording ? (
-                  <Square className="w-5 h-5" />
-                ) : isTranscribing ? (
-                  <div className="w-5 h-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                ) : (
-                  <Mic className="w-5 h-5" />
-                )}
-              </button>
-
-              <div className="relative w-full max-w-[680px] mx-auto">
-                <textarea
-                  ref={textareaRef}
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={
-                    isRecording
-                      ? 'Recording audio...'
-                      : isTranscribing
-                      ? 'Transcribing audio...'
-                      : 'Type a message...'
-                  }
-                  disabled={!isChatReady || isRecording || isTranscribing}
-                  className="w-full p-3 text-lg lg:pr-12 border border-gray-600 rounded-xl bg-zinc-800 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none disabled:opacity-50 disabled:cursor-not-allowed max-h-32"
-                  rows={1}
-                />
-              </div>
-
-              {/* Send Button */}
-              <Button
-                onClick={handleUserMessage}
-                disabled={
-                  !isChatReady ||
-                  !inputMessage.trim() ||
-                  isTyping ||
-                  isRecording ||
-                  isTranscribing
-                }
-                className="hidden lg:inline-flex flex-shrink-0 p-3 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-              >
-                <Send className="w-5 h-5" />
-              </Button>
-            </div>
-
-            {/* Mobile compose bar (mic + send below textarea) */}
             {!isTyping && !isSpeaking && (
-              <div className="lg:hidden mt-3 flex items-center justify-center gap-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                {/* Mic Button - Left */}
                 <button
                   onClick={isRecording ? stopRecording : startRecording}
                   disabled={!isChatReady || isTranscribing}
-                  className={`flex-shrink-0 p-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`shrink-0 p-2.5 sm:p-3 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg active:scale-95 touch-manipulation ${
                     isRecording
-                      ? 'bg-red-500 text-white animate-pulse'
+                      ? 'bg-red-500 text-white animate-pulse ring-2 ring-red-200'
                       : isTranscribing
-                      ? 'bg-yellow-500 text-white'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      ? 'bg-yellow-500 text-white ring-2 ring-yellow-200'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-300'
                   }`}
+                  aria-label={
+                    isRecording
+                      ? 'Stop recording'
+                      : isTranscribing
+                      ? 'Transcribing'
+                      : 'Start recording'
+                  }
                 >
                   {isRecording ? (
-                    <Square className="w-5 h-5" />
+                    <Square className="w-4 h-4 sm:w-5 sm:h-5" />
                   ) : isTranscribing ? (
-                    <div className="w-5 h-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                   ) : (
-                    <Mic className="w-5 h-5" />
+                    <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
                   )}
                 </button>
+
+                {/* Textarea - Center */}
+                <div className="relative flex-1 max-w-md">
+                  <textarea
+                    ref={textareaRef}
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={
+                      isRecording
+                        ? 'Recording audio...'
+                        : isTranscribing
+                        ? 'Transcribing audio...'
+                        : 'Type a message...'
+                    }
+                    disabled={!isChatReady || isRecording || isTranscribing}
+                    className="w-full h-9 p-2 text-sm border-2 border-slate-300 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none disabled:opacity-50 disabled:cursor-not-allowed shadow-sm focus:shadow-md transition-all"
+                  />
+                </div>
+
+                {/* Send Button - Right */}
                 <Button
                   onClick={handleUserMessage}
                   disabled={
@@ -1507,9 +1657,10 @@ export default function ChatPage({ access_token }: Props) {
                     isRecording ||
                     isTranscribing
                   }
-                  className="flex-shrink-0 p-3 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                  className="shrink-0 p-2.5 sm:p-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-full hover:from-emerald-600 hover:to-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg disabled:shadow-sm active:scale-95 touch-manipulation"
+                  aria-label="Send message"
                 >
-                  <Send className="w-5 h-5" />
+                  <Send className="w-4 h-4 sm:w-5 sm:h-5" />
                 </Button>
               </div>
             )}
@@ -1546,18 +1697,21 @@ export default function ChatPage({ access_token }: Props) {
 
             {/* Mobile interrupt bar */}
             {(isTyping || isSpeaking) && (
-              <div className="lg:hidden mt-3 flex items-center justify-center gap-2">
+              <div className="lg:hidden mt-3 flex items-center justify-center gap-2 sm:gap-3">
                 {isSpeaking && (
                   <button
                     onClick={toggleMute}
-                    className="px-3 py-1 bg-gray-700 text-gray-300 rounded-lg text-sm hover:bg-gray-600 transition-colors flex items-center space-x-1"
+                    className="px-3 sm:px-4 py-2 bg-slate-700 text-white rounded-xl text-xs sm:text-sm hover:bg-slate-800 transition-colors flex items-center space-x-1.5 active:scale-95 touch-manipulation shadow-md"
+                    aria-label={isMuted ? 'Unmute' : 'Mute'}
                   >
                     {isMuted ? (
                       <VolumeX className="w-4 h-4" />
                     ) : (
                       <Volume2 className="w-4 h-4" />
                     )}
-                    <span>{isMuted ? 'Unmute' : 'Mute'}</span>
+                    <span className="font-medium">
+                      {isMuted ? 'Unmute' : 'Mute'}
+                    </span>
                   </button>
                 )}
                 <button
@@ -1566,93 +1720,81 @@ export default function ChatPage({ access_token }: Props) {
                     setIsSpeaking(false);
                     stopResponse();
                   }}
-                  className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-colors flex items-center space-x-1"
+                  className="px-3 sm:px-4 py-2 bg-red-500 text-white rounded-xl text-xs sm:text-sm hover:bg-red-600 transition-colors flex items-center space-x-1.5 active:scale-95 touch-manipulation shadow-md"
+                  aria-label="Stop response"
                 >
                   <X className="w-4 h-4" />
-                  <span>Stop</span>
+                  <span className="font-medium">Stop</span>
                 </button>
               </div>
             )}
           </div>
         </div>
       </div>
-      <div
-        className={`
-        ${isMobile ? 'fixed right-0 top-0 h-full z-[60]' : 'relative'}
-        ${isRightSidebarOpen ? (isMobile ? 'w-80' : 'w-72') : 'w-0'} 
-        transition-all duration-300 bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden relative
-        ${
-          isMobile && !isRightSidebarOpen ? 'translate-x-full' : 'translate-x-0'
-        }
-      `}
-      >
-        {isRightSidebarOpen && character && (
-          <div>
-            <button
-              onClick={() => setIsRightSidebarOpen(false)}
-              className="absolute top-2 left-2 z-50 p-2 rounded-lg bg-gray-900/60 text-gray-200 hover:bg-gray-900 transition-colors shadow-sm"
-              aria-label="Close details"
-            >
-              <ArrowRight className="w-5 h-5" />
-            </button>
-            <Carousel>
-              <CarouselContent className="h-[400px]">
-                {character?.relationships?.images?.map((item, key) => {
-                  return (
-                    <CarouselItem className="w-full h-full" key={key}>
-                      <Image
-                        key={item.id}
-                        className="h-full w-full object-cover"
-                        src={item?.attributes?.url}
-                        height={500}
-                        width={300}
-                        alt={item?.type}
-                      />
-                    </CarouselItem>
-                  );
-                })}
-              </CarouselContent>
-              <CarouselPrevious className="ml-12 text-black" />
-              <CarouselNext className="mr-12 text-black" />
-            </Carousel>
-
-            <div className="p-4 flex flex-col items-center space-y-4 h-full">
-              <div className=" bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
-                <div className="text-white">
-                  <h2 className="text-2xl font-bold">
-                    {character.attributes.name}
-                  </h2>
-                  <p className="text-sm mt-1 whitespace-pre-wrap">
-                    {character.attributes.summary}
-                  </p>
-                  <div className="mt-3 gap-2 flex items-start">
-                    <MdLocationPin size={20} />
-
-                    <p className="text-sm text-gray-400 whitespace-pre-wrap">
-                      {character.attributes.residence_intro}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      <CharacterDetailsSidebar
+        isRightSidebarOpen={isRightSidebarOpen}
+        setIsRightSidebarOpen={setIsRightSidebarOpen}
+        isMobile={isMobile}
+      />
       <style jsx>{`
-        @keyframes rainbowSheen {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
+        @keyframes gentleBreath {
+          0%,
+          100% {
+            opacity: 0.08;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.15;
+            transform: scale(1.01);
+          }
         }
 
-        @keyframes rotateRays {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+        @keyframes borderPulse {
+          0%,
+          100% {
+            border-color: rgba(16, 185, 129, 0.2);
+            opacity: 0.6;
+          }
+          50% {
+            border-color: rgba(16, 185, 129, 0.4);
+            opacity: 1;
+          }
         }
 
-        @keyframes pulseGlow {
-          0%, 100% { opacity: 0.85; }
-          50% { opacity: 1; }
+        @keyframes wave1 {
+          0%,
+          100% {
+            height: 4px;
+            opacity: 0.4;
+          }
+          50% {
+            height: 8px;
+            opacity: 0.8;
+          }
+        }
+
+        @keyframes wave2 {
+          0%,
+          100% {
+            height: 6px;
+            opacity: 0.5;
+          }
+          50% {
+            height: 10px;
+            opacity: 0.9;
+          }
+        }
+
+        @keyframes wave3 {
+          0%,
+          100% {
+            height: 8px;
+            opacity: 0.6;
+          }
+          50% {
+            height: 12px;
+            opacity: 1;
+          }
         }
 
         @media (prefers-reduced-motion: reduce) {
