@@ -477,7 +477,7 @@ export default function HomePageComponent({ access_token }: Props) {
                   <div className="flex items-center space-x-3">
                     <Link
                       href={'/profile'}
-                      className="flex items-center space-x-2"
+                      className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
                     >
                       <Image
                         src={
@@ -487,9 +487,11 @@ export default function HomePageComponent({ access_token }: Props) {
                         alt="Profile"
                         width={32}
                         height={32}
-                        className="rounded-full"
+                        className="rounded-full ring-2 ring-pink-200"
                       />
-                      <span className="hidden sm:inline">My Profile</span>
+                      <span className="hidden sm:inline bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent font-semibold">
+                        My Profile
+                      </span>
                     </Link>
                   </div>
                 ) : (
