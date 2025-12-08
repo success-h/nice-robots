@@ -581,13 +581,7 @@ export default function ChatPage({ access_token }: Props) {
     }
   }, [character?.id, currentChat, access_token]);
 
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height =
-        textareaRef.current.scrollHeight + 'px';
-    }
-  }, [inputMessage]);
+  // Removed auto-resize to keep textarea at fixed height (h-11)
 
   const loadChatHistory = async () => {
     try {
@@ -1643,7 +1637,7 @@ export default function ChatPage({ access_token }: Props) {
                         : 'Type a message...'
                     }
                     disabled={!isChatReady || isRecording || isTranscribing}
-                    className="w-full h-9 p-2 text-sm border-2 border-slate-300 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none disabled:opacity-50 disabled:cursor-not-allowed shadow-sm focus:shadow-md transition-all"
+                    className="w-full h-11 p-2 text-sm border-2 border-slate-300 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none disabled:opacity-50 disabled:cursor-not-allowed shadow-sm focus:shadow-md transition-all"
                   />
                 </div>
 
