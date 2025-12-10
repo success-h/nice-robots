@@ -31,6 +31,12 @@ export default function ChatPage({ access_token }: Props) {
 	const [isMuted, setIsMuted] = useState(false);
 	const [sidebarOpen, setSidebarOpen] = useState(true);
 	const [isMobile, setIsMobile] = useState(false);
+	const [currentPlayingMessageId, setCurrentPlayingMessageId] = useState<
+		string | null
+	>(null);
+	const [finishedAudioMessageIds, setFinishedAudioMessageIds] = useState<
+		Set<string>
+	>(new Set());
 	// Load sidebar state from localStorage
 	const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(() => {
 		if (typeof window !== 'undefined') {
@@ -194,6 +200,7 @@ export default function ChatPage({ access_token }: Props) {
 							const assistantMessage: Message = {
 								role: 'assistant',
 								content: moderationParsedData.data.text,
+								messageId: moderationParsedData.data.message_id,
 							};
 							updateChatHistory(assistantMessage, currentChat.data.id);
 						}
@@ -305,6 +312,7 @@ export default function ChatPage({ access_token }: Props) {
 					role: 'assistant',
 					content: fullContent,
 					displayContent: [],
+					messageId: parsedData.data.message_id,
 				};
 
 				if (parsedData.data.text || emojiString) {
@@ -424,6 +432,7 @@ export default function ChatPage({ access_token }: Props) {
 	const fetchAudioStream = async (messageId: string) => {
 		try {
 			setIsSpeaking(true);
+			setCurrentPlayingMessageId(messageId);
 
 			if (audioRef.current) {
 				audioRef.current.pause();
@@ -446,6 +455,9 @@ export default function ChatPage({ access_token }: Props) {
 			if (!audioBlob || audioBlob.size === 0) {
 				console.error('Empty audio blob received');
 				setIsSpeaking(false);
+				setCurrentPlayingMessageId(null);
+				// Mark as finished even if empty, so text shows
+				setFinishedAudioMessageIds((prev) => new Set(prev).add(messageId));
 				return;
 			}
 
@@ -455,22 +467,33 @@ export default function ChatPage({ access_token }: Props) {
 
 			audio.onended = () => {
 				setIsSpeaking(false);
+				setCurrentPlayingMessageId(null);
+				setFinishedAudioMessageIds((prev) => new Set(prev).add(messageId));
 				URL.revokeObjectURL(audioUrl);
 				audioRef.current = null;
 			};
 
 			audio.onerror = () => {
 				setIsSpeaking(false);
+				setCurrentPlayingMessageId(null);
+				// Mark as finished on error too, so text shows
+				setFinishedAudioMessageIds((prev) => new Set(prev).add(messageId));
 				URL.revokeObjectURL(audioUrl);
 				audioRef.current = null;
 			};
 
 			if (!isMuted) {
 				await audio.play();
+			} else {
+				// If muted, mark as finished immediately so text shows
+				setFinishedAudioMessageIds((prev) => new Set(prev).add(messageId));
 			}
 		} catch (error) {
 			console.error('Speech stream error:', error);
 			setIsSpeaking(false);
+			setCurrentPlayingMessageId(null);
+			// Mark as finished on error, so text shows
+			setFinishedAudioMessageIds((prev) => new Set(prev).add(messageId));
 		}
 	};
 
@@ -506,6 +529,7 @@ export default function ChatPage({ access_token }: Props) {
 					const assistantMessage: Message = {
 						role: 'assistant',
 						content: data.data.text || '',
+						messageId: data.data.message_id,
 					};
 					updateChatHistory(userMessage, chatData.data.id);
 					updateChatHistory(assistantMessage, chatData.data.id);
@@ -1273,6 +1297,55 @@ export default function ChatPage({ access_token }: Props) {
 																				</div>
 																			);
 																		} else if (item.type === 'html') {
+																			// For voice mode, only show HTML content after audio finishes
+																			if (
+																				response_type === 'voice' &&
+																				message.messageId
+																			) {
+																				const shouldShowText =
+																					finishedAudioMessageIds.has(
+																						message.messageId
+																					);
+																				if (
+																					!shouldShowText &&
+																					contentIndex === 0
+																				) {
+																					// Show placeholder only for first content item
+																					return (
+																						<div
+																							key={contentIndex}
+																							className='flex items-center gap-2 text-muted-foreground'
+																						>
+																							<div className='flex items-center gap-1'>
+																								<div
+																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
+																									style={{
+																										animationDelay: '0s',
+																									}}
+																								/>
+																								<div
+																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
+																									style={{
+																										animationDelay: '0.2s',
+																									}}
+																								/>
+																								<div
+																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
+																									style={{
+																										animationDelay: '0.4s',
+																									}}
+																								/>
+																							</div>
+																							<span className='text-xs italic'>
+																								Playing audio...
+																							</span>
+																						</div>
+																					);
+																				}
+																				if (!shouldShowText) {
+																					return null;
+																				}
+																			}
 																			return (
 																				<div
 																					key={contentIndex}
@@ -1314,127 +1387,172 @@ export default function ChatPage({ access_token }: Props) {
 																	}`}
 																	dir='auto'
 																>
-																	{response_type === 'text' ? (
-																		// For text mode, process content and extract code blocks
-																		(() => {
-																			const stripMarkdown = (
-																				text: string
-																			): string => {
-																				return text
-																					.replace(/\*\*(.*?)\*\*/g, '$1')
-																					.replace(/\*(.*?)\*/g, '$1')
-																					.replace(/__(.*?)__/g, '$1')
-																					.replace(/_(.*?)_/g, '$1')
-																					.replace(/`([^`]+)`/g, '$1')
-																					.replace(/#{1,6}\s+(.*)/g, '$1')
-																					.replace(
-																						/\[([^\]]+)\]\([^\)]+\)/g,
-																						'$1'
-																					)
-																					.replace(/^\s*[-*+]\s+/gm, '')
-																					.replace(/^\s*\d+\.\s+/gm, '')
-																					.trim();
-																			};
+																	{response_type === 'text'
+																		? // For text mode, process content and extract code blocks
+																		  (() => {
+																				const stripMarkdown = (
+																					text: string
+																				): string => {
+																					return text
+																						.replace(/\*\*(.*?)\*\*/g, '$1')
+																						.replace(/\*(.*?)\*/g, '$1')
+																						.replace(/__(.*?)__/g, '$1')
+																						.replace(/_(.*?)_/g, '$1')
+																						.replace(/`([^`]+)`/g, '$1')
+																						.replace(/#{1,6}\s+(.*)/g, '$1')
+																						.replace(
+																							/\[([^\]]+)\]\([^\)]+\)/g,
+																							'$1'
+																						)
+																						.replace(/^\s*[-*+]\s+/gm, '')
+																						.replace(/^\s*\d+\.\s+/gm, '')
+																						.trim();
+																				};
 
-																			const codeBlockRegex =
-																				/```(\w+)?\n([\s\S]*?)```/g;
-																			const parts: Array<{
-																				type: 'text' | 'code';
-																				value: string;
-																			}> = [];
-																			let lastIndex = 0;
-																			let match;
+																				const codeBlockRegex =
+																					/```(\w+)?\n([\s\S]*?)```/g;
+																				const parts: Array<{
+																					type: 'text' | 'code';
+																					value: string;
+																				}> = [];
+																				let lastIndex = 0;
+																				let match;
 
-																			while (
-																				(match = codeBlockRegex.exec(
-																					message.content
-																				)) !== null
-																			) {
-																				if (match.index > lastIndex) {
-																					const textBefore =
+																				while (
+																					(match = codeBlockRegex.exec(
+																						message.content
+																					)) !== null
+																				) {
+																					if (match.index > lastIndex) {
+																						const textBefore =
+																							message.content.substring(
+																								lastIndex,
+																								match.index
+																							);
+																						if (textBefore.trim()) {
+																							parts.push({
+																								type: 'text',
+																								value:
+																									stripMarkdown(textBefore),
+																							});
+																						}
+																					}
+																					parts.push({
+																						type: 'code',
+																						value: match[2].trim(),
+																					});
+																					lastIndex =
+																						match.index + match[0].length;
+																				}
+
+																				if (
+																					lastIndex < message.content.length
+																				) {
+																					const textAfter =
 																						message.content.substring(
-																							lastIndex,
-																							match.index
+																							lastIndex
 																						);
-																					if (textBefore.trim()) {
+																					if (textAfter.trim()) {
 																						parts.push({
 																							type: 'text',
-																							value: stripMarkdown(textBefore),
+																							value: stripMarkdown(textAfter),
 																						});
 																					}
 																				}
-																				parts.push({
-																					type: 'code',
-																					value: match[2].trim(),
-																				});
-																				lastIndex =
-																					match.index + match[0].length;
-																			}
 
-																			if (lastIndex < message.content.length) {
-																				const textAfter =
-																					message.content.substring(lastIndex);
-																				if (textAfter.trim()) {
-																					parts.push({
-																						type: 'text',
-																						value: stripMarkdown(textAfter),
-																					});
+																				if (parts.length === 0) {
+																					return stripMarkdown(message.content);
 																				}
-																			}
 
-																			if (parts.length === 0) {
-																				return stripMarkdown(message.content);
-																			}
-
-																			return (
-																				<>
-																					{parts.map((part, idx) => {
-																						if (part.type === 'code') {
-																							return (
-																								<div
-																									key={idx}
-																									dir='ltr'
-																									style={{
-																										textAlign: 'left',
-																										maxWidth: '100%',
-																										marginTop: '0.75rem',
-																										marginBottom: '0.75rem',
-																									}}
-																								>
-																									<SyntaxHighlighter
-																										language='python'
-																										style={oneDark}
-																										customStyle={{
-																											borderRadius: '0.5rem',
+																				return (
+																					<>
+																						{parts.map((part, idx) => {
+																							if (part.type === 'code') {
+																								return (
+																									<div
+																										key={idx}
+																										dir='ltr'
+																										style={{
+																											textAlign: 'left',
 																											maxWidth: '100%',
-																											overflowX: 'auto',
-																											whiteSpace: 'pre-wrap',
-																											wordBreak: 'break-word',
+																											marginTop: '0.75rem',
+																											marginBottom: '0.75rem',
 																										}}
-																										wrapLongLines
 																									>
-																										{part.value}
-																									</SyntaxHighlighter>
-																								</div>
+																										<SyntaxHighlighter
+																											language='python'
+																											style={oneDark}
+																											customStyle={{
+																												borderRadius: '0.5rem',
+																												maxWidth: '100%',
+																												overflowX: 'auto',
+																												whiteSpace: 'pre-wrap',
+																												wordBreak: 'break-word',
+																											}}
+																											wrapLongLines
+																										>
+																											{part.value}
+																										</SyntaxHighlighter>
+																									</div>
+																								);
+																							}
+																							return (
+																								<span key={idx}>
+																									{part.value}
+																								</span>
 																							);
-																						}
-																						return (
-																							<span key={idx}>
-																								{part.value}
+																						})}
+																					</>
+																				);
+																		  })()
+																		: // For voice mode, only show text after audio finishes
+																		  (() => {
+																				const messageId = message.messageId;
+																				const shouldShowText = messageId
+																					? finishedAudioMessageIds.has(
+																							messageId
+																					  )
+																					: true; // If no messageId, show immediately (fallback)
+
+																				if (!shouldShowText) {
+																					// Show placeholder while audio is playing
+																					return (
+																						<div className='flex items-center gap-2 text-muted-foreground'>
+																							<div className='flex items-center gap-1'>
+																								<div
+																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
+																									style={{
+																										animationDelay: '0s',
+																									}}
+																								/>
+																								<div
+																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
+																									style={{
+																										animationDelay: '0.2s',
+																									}}
+																								/>
+																								<div
+																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
+																									style={{
+																										animationDelay: '0.4s',
+																									}}
+																								/>
+																							</div>
+																							<span className='text-xs italic'>
+																								Playing audio...
 																							</span>
-																						);
-																					})}
-																				</>
-																			);
-																		})()
-																	) : (
-																		// For voice mode, render HTML (legacy behavior)
-																		<span
-																			dangerouslySetInnerHTML={{
-																				__html: message.content,
-																			}}
-																		/>
-																	)}
+																						</div>
+																					);
+																				}
+
+																				return (
+																					<span
+																						dangerouslySetInnerHTML={{
+																							__html: message.content,
+																						}}
+																					/>
+																				);
+																		  })()}
 																</div>
 															)}
 														</div>

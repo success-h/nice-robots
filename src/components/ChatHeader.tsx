@@ -81,6 +81,77 @@ export default function ChatHeader({
 					</button>
 				)}
 
+				{/* Mobile Relationship Switcher */}
+				<div className='lg:hidden flex items-center'>
+					<Popover>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<PopoverTrigger asChild>
+									<Button
+										disabled={!currentChat}
+										className='text-sm flex items-center gap-2 font-semibold capitalize text-foreground cursor-pointer hover:bg-accent border border-border rounded-xl px-3 py-1.5 shadow-sm hover:shadow-md bg-card transition-all disabled:opacity-50'
+										ref={relTriggerRef}
+									>
+										<span className='font-bold text-foreground text-xs sm:text-sm'>
+											{character?.attributes?.name}
+										</span>
+										{currentChat?.data?.attributes?.relationship_type && (
+											<span className='text-xs bg-gradient-to-r from-pink-100 to-purple-100 text-pink-700 px-2 py-0.5 rounded-full font-medium'>
+												{currentChat?.data?.attributes?.relationship_type}
+											</span>
+										)}
+										<div className='h-2 w-2 bg-emerald-500 rounded-full ring-2 ring-emerald-200 animate-pulse'></div>
+									</Button>
+								</PopoverTrigger>
+							</TooltipTrigger>
+							<TooltipContent>
+								<p>Change relationship</p>
+							</TooltipContent>
+						</Tooltip>
+						<PopoverContent className='border bg-popover border-border shadow-xl'>
+							<div className='space-y-4'>
+								<h3
+									className={`text-xl font-bold text-popover-foreground ${
+										highlightRelPrompt
+											? 'ring-2 ring-pink-400 rounded-lg animate-pulse'
+											: ''
+									}`}
+								>
+									Choose a relationship
+								</h3>
+								<div className='flex flex-wrap justify-self-auto gap-2 text-sm'>
+									{relationshipTypes.map((type) => {
+										const isCurrent =
+											currentChat?.data?.attributes?.relationship_type === type;
+										const isSelected =
+											selectedRelationship === type || isCurrent;
+										return (
+											<Button
+												key={type}
+												variant={isSelected ? 'default' : 'outline'}
+												className={`capitalize transition-all ${
+													isSelected
+														? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white border-0 shadow-md hover:shadow-lg'
+														: 'border-border text-foreground hover:bg-accent bg-card'
+												}`}
+												onClick={() => {
+													if (!isCurrent) handleRelationshipChange(type);
+												}}
+												disabled={isCreatingChat || isCurrent}
+											>
+												{isCreatingChat && isSelected && (
+													<Loader2 className='mr-2 h-4 w-4 animate-spin' />
+												)}
+												{type}
+											</Button>
+										);
+									})}
+								</div>
+							</div>
+						</PopoverContent>
+					</Popover>
+				</div>
+
 				{/* Desktop Controls */}
 				<div className='hidden lg:flex items-center gap-3 flex-1'>
 					{isLoggedIn && plan && (

@@ -1,7 +1,6 @@
 'use client';
 
 import AgeTypeModal from '@/components/AgeTypesModal';
-import CreditsComponent from '@/components/CreditsComponent';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 import { Button } from '@/components/ui/button';
 import {
@@ -377,7 +376,6 @@ export default function HomePageComponent({ access_token }: Props) {
 								</PopoverContent>
 							</Popover>
 						)}
-						<CreditsComponent />
 					</div>
 				)}
 
