@@ -2,25 +2,15 @@
 
 import AgeTypeModal from '@/components/AgeTypesModal';
 import CreditsComponent from '@/components/CreditsComponent';
+import HomeSidebar from '@/components/HomeSidebar';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
-import { Button } from '@/components/ui/button';
 import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from '@/components/ui/popover';
-import {
-	getPlanDescription,
-	getPlanDuration,
-	getPlanDurationUnit,
-	getPlanName,
-	getPlanPrice,
-	getPlanSlug,
-	getUserPlanAttributes,
-	isFreeOrBonusPlan,
-} from '@/utils/planHelpers';
+	SidebarInset,
+	SidebarProvider,
+	SidebarTrigger,
+} from '@/components/ui/sidebar';
 import { useQuery } from '@tanstack/react-query';
-import { Loader, Menu, User, X } from 'lucide-react';
+import { Loader } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -50,23 +40,8 @@ export default function HomePageComponent({ access_token }: Props) {
 		useState<CharacterData | null>(null);
 	const [showSignInModal, setShowSignInModal] = useState(false);
 	const [loading, setLoading] = useState(false);
-	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-	const [isMobile, setIsMobile] = useState(false);
 	const [showAgeTypeModal, setShowAgeTypeModal] = useState(false);
 	const [isUpdatingUser, setIsUpdatingUser] = useState(false);
-
-	useEffect(() => {
-		const checkMobile = () => {
-			setIsMobile(window.innerWidth < 768);
-			if (window.innerWidth >= 768) {
-				setIsMobileMenuOpen(false);
-			}
-		};
-
-		checkMobile();
-		window.addEventListener('resize', checkMobile);
-		return () => window.removeEventListener('resize', checkMobile);
-	}, []);
 
 	const {
 		user,
@@ -77,8 +52,6 @@ export default function HomePageComponent({ access_token }: Props) {
 		setUser,
 		addCharacter,
 		characters,
-		plan,
-		userPlan,
 	} = useUserStore();
 	const router = useRouter();
 
@@ -86,115 +59,6 @@ export default function HomePageComponent({ access_token }: Props) {
 		queryKey: ['characters'],
 		queryFn: getCharacters,
 	});
-
-	// Reusable body for the plan popover (used on mobile and desktop)
-	const PlanPopoverBody = () => (
-		<div className='space-y-5 text-popover-foreground'>
-			{/* Header */}
-			<div className='space-y-2'>
-				<div className='flex items-center gap-2'>
-					<div className='w-2 h-2 rounded-full bg-gradient-to-r from-pink-500 to-purple-500'></div>
-					<h3 className='text-2xl font-bold text-popover-foreground'>
-						{getPlanName(plan)}
-					</h3>
-				</div>
-				{getPlanDescription(plan) && (
-					<p className='text-sm whitespace-pre-wrap text-muted-foreground leading-relaxed pl-4'>
-						{getPlanDescription(plan)}
-					</p>
-				)}
-			</div>
-
-			{/* Details Section */}
-			<div className='space-y-3 pt-4 border-t border-border'>
-				{getPlanPrice(plan) !== undefined && (
-					<div className='flex justify-between items-center py-1.5 px-2 rounded-lg bg-muted/30'>
-						<span className='text-muted-foreground text-sm'>Price</span>
-						<span className='font-bold text-popover-foreground text-base'>
-							{getPlanPrice(plan)}
-						</span>
-					</div>
-				)}
-				{getPlanDuration(plan) && (
-					<div className='flex justify-between items-center py-1.5 px-2 rounded-lg bg-muted/30'>
-						<span className='text-muted-foreground text-sm'>Duration</span>
-						<span className='font-bold text-popover-foreground text-base'>
-							{getPlanDuration(plan)} {getPlanDurationUnit(plan)}
-						</span>
-					</div>
-				)}
-				{(() => {
-					const userPlanAttrs = getUserPlanAttributes(userPlan);
-					if (!userPlanAttrs?.start_date || !userPlanAttrs?.end_date)
-						return null;
-
-					const slug = getPlanSlug(plan);
-					const start = new Date(userPlanAttrs.start_date);
-					const end = new Date(userPlanAttrs.end_date);
-					const isFreeOrBonus = slug === 'free' || slug === 'bonus';
-
-					if (isFreeOrBonus) {
-						return (
-							<div className='flex justify-between items-center py-1.5 px-2 rounded-lg bg-muted/30'>
-								<span className='text-muted-foreground text-sm'>Period</span>
-								<span className='font-bold text-popover-foreground text-base'>
-									{start.toLocaleDateString()} - {end.toLocaleDateString()}
-								</span>
-							</div>
-						);
-					}
-					const nextCharge = new Date(end);
-					nextCharge.setDate(nextCharge.getDate() + 1);
-					return (
-						<>
-							<div className='flex justify-between items-center py-1.5 px-2 rounded-lg bg-muted/30'>
-								<span className='text-muted-foreground text-sm'>
-									Last paid on
-								</span>
-								<span className='font-bold text-popover-foreground text-base'>
-									{start.toLocaleDateString()}
-								</span>
-							</div>
-							<div className='flex justify-between items-center py-1.5 px-2 rounded-lg bg-muted/30'>
-								<span className='text-muted-foreground text-sm'>
-									Next charge
-								</span>
-								<span className='font-bold text-popover-foreground text-base'>
-									{nextCharge.toLocaleDateString()}
-								</span>
-							</div>
-						</>
-					);
-				})()}
-			</div>
-
-			{/* Action Buttons */}
-			{isFreeOrBonusPlan(plan) && (
-				<div className='pt-2'>
-					<Button
-						className='w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-semibold py-3 rounded-xl transition-all shadow-lg hover:shadow-xl border-0'
-						onClick={() => router.push('/plans?from=home')}
-					>
-						Upgrade to Premium
-					</Button>
-				</div>
-			)}
-
-			{(() => {
-				const slug = getPlanSlug(plan);
-				return slug && slug !== 'free' && slug !== 'bonus';
-			})() && (
-				<div className='pt-2'>
-					<Button
-						className='w-full border-2 border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500 bg-transparent font-semibold py-3 rounded-xl transition-all'
-						onClick={() => router.push('/credits?from=home')}
-					>
-						Buy credits
-					</Button>
-				</div>
-			)}
-		</div>
-	);
 
 	useEffect(() => {
 		if (user) {
@@ -253,10 +117,6 @@ export default function HomePageComponent({ access_token }: Props) {
 		const activeCharacterIds =
 			characters?.map((character) => character?.id) || [];
 		return activeCharacterIds.includes(characterId);
-	};
-
-	const closeMobileMenu = () => {
-		setIsMobileMenuOpen(false);
 	};
 
 	const handleAgeTypeSelected = async (selectedAgeType: string) => {
@@ -350,132 +210,23 @@ export default function HomePageComponent({ access_token }: Props) {
 
 	const sortedCharacters = getSortedCharacters();
 
-	const SidebarContent = () => (
-		<>
-			<div className='p-6 flex flex-col h-full'>
-				<h1 className='text-2xl font-bold mb-6 text-sidebar-foreground'>
-					Nice<span className='text-pink-500'> Buddies</span>
-				</h1>
-
-				{/* Plan and Credits */}
-				{isLoggedIn && (
-					<div className='mb-6 space-y-3'>
-						{plan && (
-							<Popover>
-								<PopoverTrigger asChild>
-									<button className='w-full capitalize border border-border rounded-xl flex items-center gap-2 px-4 py-2.5 font-semibold text-foreground cursor-pointer hover:bg-accent transition-all shadow-sm hover:shadow-md bg-card'>
-										<span className='text-xs bg-gradient-to-r from-pink-500 to-purple-500 text-white px-2.5 py-1 rounded-full font-bold'>
-											Plan
-										</span>
-										<span className='text-sm flex-1 text-left'>
-											{getPlanName(plan)}
-										</span>
-									</button>
-								</PopoverTrigger>
-								<PopoverContent className='border-0 bg-popover shadow-2xl p-6 w-[min(90vw,22rem)]'>
-									<PlanPopoverBody />
-								</PopoverContent>
-							</Popover>
-						)}
-					</div>
-				)}
-
-				<nav className='space-y-4 flex-1'>
-					<button
-						onClick={() => {
-							currentChat?.data
-								? router.push('/chat')
-								: handleCharacterClick(sortedCharacters[0]);
-							closeMobileMenu();
-						}}
-						className='cursor-pointer flex items-center space-x-3 w-full text-left p-3 rounded-xl text-white font-semibold bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 transition-all shadow-md hover:shadow-lg'
-					>
-						<span>💬</span>
-						<span>My Chats</span>
-					</button>
-				</nav>
-
-				{user?.data && (
-					<div className='mt-auto pt-4 border-t border-sidebar-border'>
-						<Link
-							href={'/profile'}
-							onClick={closeMobileMenu}
-							className='flex cursor-pointer items-center space-x-3 w-full text-left text-sidebar-foreground hover:text-sidebar-foreground p-2 rounded-lg hover:bg-sidebar-accent transition-colors'
-						>
-							<User className='w-4 h-4' />
-							<span>Profile settings</span>
-						</Link>
-					</div>
-				)}
-			</div>
-		</>
-	);
-
 	return (
-		<div className='min-h-screen bg-background'>
-			{/* Mobile Overlay */}
-			{isMobile && isMobileMenuOpen && (
-				<div
-					className='fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden'
-					onClick={() => setIsMobileMenuOpen(false)}
-				/>
-			)}
+		<SidebarProvider>
+			<HomeSidebar
+				sortedCharacters={sortedCharacters}
+				handleCharacterClick={handleCharacterClick}
+			/>
 
-			{/* Sidebar */}
-			<div
-				className={`
-        ${
-					isMobile
-						? 'fixed left-0 top-0 h-full z-50'
-						: 'fixed left-0 top-0 h-full z-30'
-				}
-        ${isMobileMenuOpen || !isMobile ? 'w-64' : 'w-0'}
-        transition-all duration-300 bg-sidebar border-r border-sidebar-border overflow-hidden shadow-lg
-        ${isMobile && !isMobileMenuOpen ? '-translate-x-full' : 'translate-x-0'}
-      `}
-			>
-				{/* Mobile Close Button */}
-				{isMobile && (
-					<button
-						onClick={() => setIsMobileMenuOpen(false)}
-						className='absolute top-4 right-4 z-10 p-2 text-sidebar-foreground hover:text-sidebar-foreground'
-					>
-						<X className='w-5 h-5' />
-					</button>
-				)}
-
-				<SidebarContent />
-			</div>
-
-			{/* Main Content */}
-			<div className={`${isMobile ? 'ml-0' : 'ml-64'}`}>
+			<SidebarInset className='bg-background'>
 				{/* Header */}
 				<header className='border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-40 shadow-sm'>
 					<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-						<div className='flex items-start justify-between h-auto py-3 md:items-center md:h-16'>
-							<div
-								className={`${
-									isMobile
-										? 'flex flex-col gap-2'
-										: 'flex items-center space-x-4'
-								}`}
-							>
-								{/* Mobile Menu Button */}
-								{isMobile && (
-									<button
-										onClick={() => setIsMobileMenuOpen(true)}
-										className='p-2 text-foreground hover:text-foreground'
-									>
-										<Menu className='w-5 h-5' />
-									</button>
-								)}
-
-								{/* Mobile Logo */}
-								{isMobile && (
-									<h1 className='text-xl font-bold text-foreground'>
-										Nice<span className='text-pink-500'>Buddies</span>
-									</h1>
-								)}
+						<div className='flex items-center justify-between h-16'>
+							<div className='flex items-center gap-3'>
+								<SidebarTrigger className='md:hidden' />
+								<h1 className='text-xl font-bold text-foreground md:hidden'>
+									Nice<span className='text-pink-500'>Buddies</span>
+								</h1>
 							</div>
 
 							<div className='flex items-center space-x-4'>
@@ -484,7 +235,7 @@ export default function HomePageComponent({ access_token }: Props) {
 								{isLoggedIn ? (
 									<div className='flex items-center space-x-3'>
 										<Link
-											href={'/profile'}
+											href='/profile'
 											className='flex items-center space-x-2 hover:opacity-80 transition-opacity'
 										>
 											<Image
@@ -594,7 +345,7 @@ export default function HomePageComponent({ access_token }: Props) {
 						})}
 					</div>
 				</div>
-			</div>
+			</SidebarInset>
 
 			<SignInModal
 				isOpen={showSignInModal}
@@ -609,6 +360,6 @@ export default function HomePageComponent({ access_token }: Props) {
 					isLoading={isUpdatingUser}
 				/>
 			)}
-		</div>
+		</SidebarProvider>
 	);
 }

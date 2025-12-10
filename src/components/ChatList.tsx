@@ -15,6 +15,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from './ui/dialog';
+import { useSidebar } from './ui/sidebar';
 
 type Props = {
 	characters: CharacterData[] | null;
@@ -35,6 +36,8 @@ function ChatList({
 	deleteLoading,
 	updateCharacterVideoPlayed,
 }: Props) {
+	const { setOpenMobile } = useSidebar();
+
 	const chatHistoryMap = useMemo(() => {
 		if (!chats) return new Map();
 		return chats.reduce((map, item) => {
@@ -63,6 +66,7 @@ function ChatList({
 							onClick={() => {
 								updateCharacterVideoPlayed();
 								setCharacter(character);
+								setOpenMobile(false);
 							}}
 							className={cn(
 								'flex w-full cursor-pointer p-2.5 sm:p-3 items-center text-left rounded-xl transition-all group shadow-sm hover:shadow-md active:scale-[0.98] touch-manipulation',
@@ -92,7 +96,10 @@ function ChatList({
 									{lastMessage?.length > 25 ? '...' : ''}
 								</p>
 							</div>
-							<div className='ml-1 sm:ml-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0'>
+							<div
+								className='ml-1 sm:ml-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0'
+								onClick={(e) => e.stopPropagation()}
+							>
 								<Dialog>
 									<DialogTrigger className='cursor-pointer p-2 rounded-lg hover:bg-red-50 active:bg-red-100 text-muted-foreground hover:text-red-500 transition-colors touch-manipulation'>
 										<FiTrash className='w-4 h-4 sm:w-5 sm:h-5' />

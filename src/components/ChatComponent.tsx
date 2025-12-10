@@ -4,6 +4,7 @@ import CharacterDetailsSidebar from '@/components/CharacterDetailsSidebar';
 import ChatHeader from '@/components/ChatHeader';
 import ChatSidebar from '@/components/ChatSidebar';
 import { Button } from '@/components/ui/button';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { useApi } from '@/hooks/useApi';
 import useUserStore, {
 	Message,
@@ -29,7 +30,6 @@ export default function ChatPage({ access_token }: Props) {
 	const [isTranscribing, setIsTranscribing] = useState(false);
 	const [recordingTime, setRecordingTime] = useState(0);
 	const [isMuted, setIsMuted] = useState(false);
-	const [sidebarOpen, setSidebarOpen] = useState(true);
 	const [isMobile, setIsMobile] = useState(false);
 	const [currentPlayingMessageId, setCurrentPlayingMessageId] = useState<
 		string | null
@@ -82,13 +82,10 @@ export default function ChatPage({ access_token }: Props) {
 			setIsMobile(isMobileDevice);
 			setViewportWidth(window.innerWidth);
 			if (isMobileDevice) {
-				// On mobile, always close sidebars
-				setSidebarOpen(false);
+				// On mobile, close right sidebar
 				setIsRightSidebarOpen(false);
 			} else {
-				// On desktop, restore left sidebar but keep right sidebar state from localStorage
-				setSidebarOpen(true);
-				// Don't auto-open right sidebar - respect user's preference
+				// On desktop, respect user's preference for right sidebar
 				const saved = localStorage.getItem('rightSidebarOpen');
 				if (saved !== null) {
 					setIsRightSidebarOpen(saved === 'true');
@@ -952,14 +949,7 @@ export default function ChatPage({ access_token }: Props) {
 	}, [character?.id, updateCharacterVideoPlayed]);
 
 	return (
-		<div className='flex h-screen bg-background overflow-x-hidden'>
-			{isMobile && sidebarOpen && (
-				<div
-					className='fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden'
-					onClick={() => setSidebarOpen(false)}
-				/>
-			)}
-
+		<SidebarProvider>
 			{isMobile && isRightSidebarOpen && (
 				<div
 					className='fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden'
@@ -972,11 +962,7 @@ export default function ChatPage({ access_token }: Props) {
 				/>
 			)}
 
-			{/* Sidebar */}
 			<ChatSidebar
-				sidebarOpen={sidebarOpen}
-				setSidebarOpen={setSidebarOpen}
-				isMobile={isMobile}
 				deleteLoading={deleteLoading}
 				handleDeleteChat={handleDeleteChat}
 				relationshipTypes={relationshipTypes}
@@ -987,13 +973,10 @@ export default function ChatPage({ access_token }: Props) {
 				isCreatingChat={isCreatingChat}
 			/>
 
-			<div className='flex-1 flex flex-col bg-background overflow-x-hidden'>
+			<SidebarInset className='flex flex-col bg-background overflow-x-hidden h-screen'>
 				<ChatHeader
-					sidebarOpen={sidebarOpen}
-					setSidebarOpen={setSidebarOpen}
 					isRightSidebarOpen={isRightSidebarOpen}
 					setIsRightSidebarOpen={setIsRightSidebarOpen}
-					isMobile={isMobile}
 					relationshipTypes={relationshipTypes}
 					selectedRelationship={selectedRelationship}
 					handleRelationshipChange={handleRelationshipChange}
@@ -1841,12 +1824,7 @@ export default function ChatPage({ access_token }: Props) {
 						)}
 					</div>
 				</div>
-			</div>
-			<CharacterDetailsSidebar
-				isRightSidebarOpen={isRightSidebarOpen}
-				setIsRightSidebarOpen={setIsRightSidebarOpen}
-				isMobile={isMobile}
-			/>
+			</SidebarInset>
 			<style jsx>{`
 				@keyframes gentleBreath {
 					0%,
@@ -1914,6 +1892,12 @@ export default function ChatPage({ access_token }: Props) {
 					}
 				}
 			`}</style>
-		</div>
+
+			<CharacterDetailsSidebar
+				isRightSidebarOpen={isRightSidebarOpen}
+				setIsRightSidebarOpen={setIsRightSidebarOpen}
+				isMobile={isMobile}
+			/>
+		</SidebarProvider>
 	);
 }

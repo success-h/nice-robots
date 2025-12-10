@@ -10,6 +10,7 @@ import {
 	PopoverTrigger,
 } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import {
 	Tooltip,
 	TooltipContent,
@@ -26,15 +27,12 @@ import {
 	isFreeOrBonusPlan,
 } from '@/utils/planHelpers';
 import useUserStore from '@/zustand/useStore';
-import { Edit2, Loader2, MessageSquare, PanelRight } from 'lucide-react';
+import { Edit2, Loader2, PanelRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface ChatHeaderProps {
-	sidebarOpen: boolean;
-	setSidebarOpen: (open: boolean) => void;
 	isRightSidebarOpen: boolean;
 	setIsRightSidebarOpen: (open: boolean) => void;
-	isMobile: boolean;
 	relationshipTypes: string[];
 	selectedRelationship: string;
 	handleRelationshipChange: (type: string) => Promise<void>;
@@ -44,11 +42,8 @@ interface ChatHeaderProps {
 }
 
 export default function ChatHeader({
-	sidebarOpen,
-	setSidebarOpen,
 	isRightSidebarOpen,
 	setIsRightSidebarOpen,
-	isMobile,
 	relationshipTypes,
 	selectedRelationship,
 	handleRelationshipChange,
@@ -57,6 +52,7 @@ export default function ChatHeader({
 	isCreatingChat,
 }: ChatHeaderProps) {
 	const router = useRouter();
+	const { isMobile, state } = useSidebar();
 	const {
 		isLoggedIn,
 		plan,
@@ -70,15 +66,9 @@ export default function ChatHeader({
 	return (
 		<div className='border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-30 shadow-sm p-3 sm:p-4'>
 			<div className='flex items-center justify-between gap-3'>
-				{/* Mobile sidebar toggles */}
-				{!sidebarOpen && (
-					<button
-						onClick={() => setSidebarOpen(true)}
-						className='p-2.5 text-foreground hover:text-foreground rounded-xl bg-card/90 backdrop-blur-sm hover:bg-card transition-all shadow-md hover:shadow-lg border border-border'
-						aria-label='Open chat sidebar'
-					>
-						<MessageSquare className='w-5 h-5' />
-					</button>
+				{/* Sidebar trigger - show on mobile or when desktop sidebar is collapsed */}
+				{(isMobile || state === 'collapsed') && (
+					<SidebarTrigger className='p-2.5 text-foreground hover:text-foreground rounded-xl bg-card/90 backdrop-blur-sm hover:bg-card transition-all shadow-md hover:shadow-lg border border-border h-auto w-auto' />
 				)}
 
 				{/* Mobile Relationship Switcher */}
@@ -169,7 +159,7 @@ export default function ChatHeader({
 									<div className='space-y-2'>
 										<div className='flex items-center gap-2'>
 											<div className='w-2 h-2 rounded-full bg-gradient-to-r from-pink-500 to-purple-500'></div>
-											<h3 className='text-2xl font-bold text-white'>
+											<h3 className='text-2xl font-bold text-popover-foreground'>
 												{getPlanName(plan)}
 											</h3>
 										</div>
