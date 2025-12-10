@@ -1280,19 +1280,14 @@ export default function ChatPage({ access_token }: Props) {
 																				</div>
 																			);
 																		} else if (item.type === 'html') {
-																			// For voice mode, only show HTML content after audio finishes
+																			// For voice mode, hide text while audio is currently playing for this message
 																			if (
 																				response_type === 'voice' &&
-																				message.messageId
+																				message.messageId &&
+																				currentPlayingMessageId ===
+																					message.messageId
 																			) {
-																				const shouldShowText =
-																					finishedAudioMessageIds.has(
-																						message.messageId
-																					);
-																				if (
-																					!shouldShowText &&
-																					contentIndex === 0
-																				) {
+																				if (contentIndex === 0) {
 																					// Show placeholder only for first content item
 																					return (
 																						<div
@@ -1319,15 +1314,10 @@ export default function ChatPage({ access_token }: Props) {
 																									}}
 																								/>
 																							</div>
-																							<span className='text-xs italic'>
-																								Playing audio...
-																							</span>
 																						</div>
 																					);
 																				}
-																				if (!shouldShowText) {
-																					return null;
-																				}
+																				return null;
 																			}
 																			return (
 																				<div
@@ -1345,6 +1335,45 @@ export default function ChatPage({ access_token }: Props) {
 																				/>
 																			);
 																		} else if (item.type === 'text') {
+																			// For voice mode, hide text while audio is currently playing for this message
+																			if (
+																				response_type === 'voice' &&
+																				message.messageId &&
+																				currentPlayingMessageId ===
+																					message.messageId
+																			) {
+																				if (contentIndex === 0) {
+																					// Show placeholder only for first content item
+																					return (
+																						<div
+																							key={contentIndex}
+																							className='flex items-center gap-2 text-muted-foreground'
+																						>
+																							<div className='flex items-center gap-1'>
+																								<div
+																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
+																									style={{
+																										animationDelay: '0s',
+																									}}
+																								/>
+																								<div
+																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
+																									style={{
+																										animationDelay: '0.2s',
+																									}}
+																								/>
+																								<div
+																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
+																									style={{
+																										animationDelay: '0.4s',
+																									}}
+																								/>
+																							</div>
+																						</div>
+																					);
+																				}
+																				return null;
+																			}
 																			const textClasses = message.isBouncyEmoji
 																				? 'bounce-effect text-4xl'
 																				: 'text-sm whitespace-pre-wrap break-words max-w-full';
@@ -1488,16 +1517,14 @@ export default function ChatPage({ access_token }: Props) {
 																					</>
 																				);
 																		  })()
-																		: // For voice mode, only show text after audio finishes
+																		: // For voice mode, hide text while audio is currently playing
 																		  (() => {
-																				const messageId = message.messageId;
-																				const shouldShowText = messageId
-																					? finishedAudioMessageIds.has(
-																							messageId
-																					  )
-																					: true; // If no messageId, show immediately (fallback)
+																				const isCurrentlyPlaying =
+																					message.messageId &&
+																					currentPlayingMessageId ===
+																						message.messageId;
 
-																				if (!shouldShowText) {
+																				if (isCurrentlyPlaying) {
 																					// Show placeholder while audio is playing
 																					return (
 																						<div className='flex items-center gap-2 text-muted-foreground'>
@@ -1521,9 +1548,6 @@ export default function ChatPage({ access_token }: Props) {
 																									}}
 																								/>
 																							</div>
-																							<span className='text-xs italic'>
-																								Playing audio...
-																							</span>
 																						</div>
 																					);
 																				}
