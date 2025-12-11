@@ -935,6 +935,9 @@ export default function ChatPage({ access_token }: Props) {
 	);
 
 	const showVideoIntro = !character?.attributes?.video_played;
+	const computedAutoPlay = showVideoIntro;
+
+	// (debug instrumentation removed)
 
 	useEffect(() => {
 		if (!character?.id) return;
@@ -990,11 +993,17 @@ export default function ChatPage({ access_token }: Props) {
 						{introVideo && (
 							<video
 								src={introVideo?.attributes?.url}
-								autoPlay={!showVideoIntro}
+								autoPlay={computedAutoPlay}
 								controls
 								className='w-full max-w-[calc(100vw-2rem)] sm:max-w-md rounded-xl shadow-lg'
 								poster={character?.attributes?.avatar}
 								preload='metadata'
+								onPlay={() => {
+									// Mark video as played exactly when it starts to avoid re-autoplay on revisits
+									if (character?.id) {
+										updateCharacterVideoPlayed(character.id);
+									}
+								}}
 								onError={(e) => {
 									const videoElement = e.currentTarget as HTMLVideoElement;
 									const errorDetails = {
