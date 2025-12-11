@@ -328,6 +328,7 @@ const useUserStore = create<UserState>()(
       },
       updateCharacterVideoPlayed: (characterId) => {
         set((state) => {
+          
           const updatedCharacters =
             state.characters?.map((char) => {
               if (char.id === characterId) {
@@ -679,17 +680,35 @@ const useUserStore = create<UserState>()(
 
       setCharacter: (characterData) => {
         set((state) => {
-          const videoPlayed =
+          // Determine the correct `video_played` flag by preferring existing store knowledge
+          const incomingProvided =
             characterData?.attributes?.video_played !== undefined
               ? characterData.attributes.video_played
+              : undefined;
+          const existingFromList =
+            state.characters?.find((c) => c.id === characterData?.id)?.attributes
+              ?.video_played;
+          const existingFromCurrent =
+            state.character?.id === characterData?.id
+              ? state.character?.attributes?.video_played
+              : undefined;
+          const resolvedPlayed =
+            incomingProvided !== undefined
+              ? incomingProvided
+              : existingFromList !== undefined
+              ? existingFromList
+              : existingFromCurrent !== undefined
+              ? existingFromCurrent
               : false;
+
+          
           return {
             character: characterData
               ? {
                   ...characterData,
                   attributes: {
                     ...characterData.attributes,
-                    video_played: videoPlayed,
+                    video_played: resolvedPlayed,
                   },
                 }
               : null,
