@@ -117,6 +117,23 @@ export default function ChatPage({ access_token }: Props) {
 
 	const isChatReady = !!currentChat?.data?.id && !isCreatingChat;
 
+	// Auto-resize textarea to fit content while keeping mic/send aligned to top
+	const autoResizeTextarea = (el: HTMLTextAreaElement | null) => {
+		if (!el) return;
+		// Baseline = original height (h-11 ≈ 44px)
+		const basePx = 44;
+		const maxPx = 240; // soft cap (~15 lines)
+		// Reset to baseline first to measure correctly
+		el.style.height = `${basePx}px`;
+		const needed = Math.max(el.scrollHeight, basePx);
+		el.style.height = `${Math.min(needed, maxPx)}px`;
+	};
+
+	useEffect(() => {
+		// Re-calc when programmatically setting text (e.g., transcript appended)
+		autoResizeTextarea(textareaRef.current);
+	}, [inputMessage]);
+
 	const handlePromptRelationship = () => {
 		setHighlightRelPrompt(true);
 		if (inlineRelHeadingRef.current) {
@@ -1726,13 +1743,13 @@ export default function ChatPage({ access_token }: Props) {
 							/>
 						)}
 						{!isTyping && !isSpeaking && (
-							<div className='flex items-center justify-center gap-2 sm:gap-3'>
+							<div className='flex items-start justify-center gap-2 sm:gap-3'>
 								{/* Mic Button - Left (wrapped to equalize width with Send) */}
-								<div className='shrink-0 w-12 sm:w-12 flex justify-center'>
+								<div className='shrink-0 w-10 flex justify-center'>
 									<button
 										onClick={isRecording ? stopRecording : startRecording}
 										disabled={!isChatReady || isTranscribing}
-										className={`p-2.5 sm:p-3 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg active:scale-95 touch-manipulation ${
+										className={`inline-flex items-center justify-center w-10 h-10 p-0 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg active:scale-95 touch-manipulation ${
 											isRecording
 												? 'bg-red-500 text-white animate-pulse ring-2 ring-red-200'
 												: isTranscribing
@@ -1748,11 +1765,11 @@ export default function ChatPage({ access_token }: Props) {
 										}
 									>
 										{isRecording ? (
-											<Square className='w-4 h-4 sm:w-5 sm:h-5' />
+											<Square className='w-4 h-4' />
 										) : isTranscribing ? (
-											<div className='w-4 h-4 sm:w-5 sm:h-5 animate-spin rounded-full border-2 border-white border-t-transparent' />
+											<div className='w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent' />
 										) : (
-											<Mic className='w-4 h-4 sm:w-5 sm:h-5' />
+											<Mic className='w-4 h-4' />
 										)}
 									</button>
 								</div>
@@ -1764,6 +1781,7 @@ export default function ChatPage({ access_token }: Props) {
 										value={inputMessage}
 										onChange={(e) => setInputMessage(e.target.value)}
 										onKeyDown={handleKeyDown}
+										onInput={(e) => autoResizeTextarea(e.currentTarget)}
 										placeholder={
 											isRecording
 												? 'Recording audio...'
@@ -1772,13 +1790,13 @@ export default function ChatPage({ access_token }: Props) {
 												: 'Type a message...'
 										}
 										disabled={!isChatReady || isRecording || isTranscribing}
-										className='w-full h-11 p-2 text-sm border-2 border-border rounded-lg bg-background dark:bg-muted text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none disabled:opacity-50 disabled:cursor-not-allowed shadow-sm focus:shadow-md transition-all'
+										className='w-full h-11 p-2 text-sm border-2 border-border rounded-lg bg-background dark:bg-muted text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed shadow-sm focus:shadow-md transition-all leading-normal'
 									/>
 								</div>
 
 								{/* Send Button - Right */}
 								{/* Send Button - Right (wrapped to equalize width with Mic) */}
-								<div className='shrink-0 w-12 sm:w-12 flex justify-center'>
+								<div className='shrink-0 w-10 flex justify-center'>
 									<Button
 										onClick={handleUserMessage}
 										disabled={
@@ -1788,10 +1806,10 @@ export default function ChatPage({ access_token }: Props) {
 											isRecording ||
 											isTranscribing
 										}
-										className='p-2.5 sm:p-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-full hover:from-emerald-600 hover:to-emerald-700 disabled:bg-muted disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg disabled:shadow-sm active:scale-95 touch-manipulation'
+										className='inline-flex items-center justify-center w-10 h-10 p-0 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-full hover:from-emerald-600 hover:to-emerald-700 disabled:bg-muted disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg disabled:shadow-sm active:scale-95 touch-manipulation'
 										aria-label='Send message'
 									>
-										<Send className='w-4 h-4 sm:w-5 sm:h-5' />
+										<Send className='w-4 h-4' />
 									</Button>
 								</div>
 							</div>
