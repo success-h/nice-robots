@@ -176,11 +176,11 @@ export default function CreditsComponent() {
 
 	// Default: show credits from store (works even if WebSocket isn't connected)
 	return (
-		<div className='flex items-center space-x-2 px-3 py-2 rounded-xl bg-primary border border-border shadow-md hover:shadow-lg transition-shadow'>
+		<div className='flex items-center space-x-2 px-3 py-2 rounded-xl bg-card hover:bg-accent border border-border shadow-sm hover:shadow-md transition-colors dark:bg-card dark:hover:bg-accent'>
 			<div className='flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/20'>
 				<Coins className='w-3.5 h-3.5 text-emerald-400' />
 			</div>
-			<span className='text-sm font-bold text-primary-foreground'>
+			<span className='text-sm font-bold text-foreground'>
 				{credits.toLocaleString()}
 			</span>
 		</div>
