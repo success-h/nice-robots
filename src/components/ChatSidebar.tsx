@@ -101,7 +101,7 @@ export default function ChatSidebar({
 							<Popover>
 								<PopoverTrigger asChild>
 									<button className='w-full capitalize border border-border rounded-xl flex items-center gap-2 px-3 py-2 font-semibold text-foreground cursor-pointer hover:bg-accent transition-all shadow-sm hover:shadow-md bg-card text-xs sm:text-sm'>
-										<span className='text-xs bg-gradient-to-r from-pink-500 to-purple-500 text-white px-2 py-0.5 rounded-full font-bold'>
+										<span className='text-xs bg-emerald-500 text-white px-2 py-0.5 rounded-full font-bold'>
 											Plan
 										</span>
 										<span className='flex-1 text-left truncate'>
