@@ -1188,7 +1188,7 @@ export default function ChatPage({ access_token }: Props) {
 								return (
 									<div key={index} className='group'>
 										<div
-											className={`flex items-start space-x-3 w-full overflow-x-hidden ${
+											className={`flex items-start space-x-3 w-full overflow-visible ${
 												message.role === 'user'
 													? 'flex-row-reverse space-x-reverse'
 													: ''
