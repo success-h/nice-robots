@@ -1676,7 +1676,7 @@ export default function ChatPage({ access_token }: Props) {
 								);
 							})}
 
-							{isTyping && (
+							{isTyping && !isSpeaking && (
 								<div className='flex items-start space-x-3'>
 									<div className='w-10 h-10 rounded-full ring-2 ring-slate-200 overflow-hidden bg-gradient-to-br from-pink-100 to-purple-100'>
 										<Image
