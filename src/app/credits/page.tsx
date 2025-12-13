@@ -161,7 +161,16 @@ export default function CreditsPage() {
           <header className="flex items-center justify-between">
             <h1 className="text-2xl font-bold">Credit Packs</h1>
             <Link href={from === 'home' ? '/' : '/chat'}>
-              <Button className="border bg-transparent text-white">{from === 'home' ? 'Back to Home' : 'Back to Chat'}</Button>
+              <Button
+                className="
+                  border
+                  bg-white text-black hover:bg-white
+                  dark:bg-transparent dark:text-white
+                  cursor-pointer
+                "
+              >
+                {from === 'home' ? 'Back to Home' : 'Back to Chat'}
+              </Button>
             </Link>
           </header>
 
@@ -199,7 +208,7 @@ export default function CreditsPage() {
                         )}
                         <div className="mt-2">
                           <Button
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white w-full whitespace-nowrap"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white w-full whitespace-nowrap cursor-pointer"
                             disabled={creatingPackId === p.id}
                             onClick={() => handleChoosePack(p as any)}
                           >

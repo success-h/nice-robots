@@ -162,7 +162,16 @@ export default function PlansPage() {
           const backLabel = from === 'home' ? 'Back to Home' : from === 'settings' ? 'Back to Settings' : 'Back to Chat';
           return (
             <Link href={backHref}>
-              <Button className="border bg-transparent text-white">{backLabel}</Button>
+              <Button
+                className="
+                  border
+                  bg-white text-black hover:bg-white
+                  dark:bg-transparent dark:text-white
+                  cursor-pointer
+                "
+              >
+                {backLabel}
+              </Button>
             </Link>
           );
         })()}
@@ -215,7 +224,7 @@ export default function PlansPage() {
                           )}
                           <div className="mt-2">
                             <Button
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white w-full whitespace-nowrap"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white w-full whitespace-nowrap cursor-pointer"
                               disabled={creatingPlanId === p.id}
                               onClick={() => handleChoosePlan(p as any)}
                             >
