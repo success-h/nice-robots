@@ -1267,10 +1267,10 @@ export default function ChatPage({ access_token }: Props) {
 												) : (
 													<div className={`relative inline-block max-w-full`}>
 														<div
-															className={`inline-block p-3 sm:p-4 rounded-2xl shadow-sm ${
+															className={`inline-block p-3 sm:p-4 rounded-2xl shadow-none ${
 																message.role === 'user'
 																	? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md'
-																	: 'bg-card text-card-foreground border border-border'
+																	: 'bg-card text-card-foreground border-none ring-0 outline-none'
 															}`}
 														>
 															{message.displayContent &&
@@ -1598,19 +1598,16 @@ export default function ChatPage({ access_token }: Props) {
 																	<div
 																		className='absolute inset-0 rounded-lg'
 																		style={{
-																			background:
-																				'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.12) 100%)',
-																			animation:
-																				'gentleBreath 3s ease-in-out infinite',
+																			background: 'transparent',
+																			animation: 'none',
 																		}}
 																	/>
 																	{/* Subtle border pulse */}
 																	<div
-																		className='absolute inset-0 rounded-lg border-2'
+																		className='absolute inset-0 rounded-lg'
 																		style={{
-																			borderColor: 'rgba(16, 185, 129, 0.3)',
-																			animation:
-																				'borderPulse 2.5s ease-in-out infinite',
+																			boxShadow: 'none',
+																			animation: 'none',
 																		}}
 																	/>
 																	{/* Small audio wave indicator */}
