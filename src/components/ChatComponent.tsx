@@ -1267,10 +1267,10 @@ export default function ChatPage({ access_token }: Props) {
 												) : (
 													<div className={`relative inline-block max-w-full`}>
 														<div
-															className={`inline-block p-3 sm:p-4 rounded-2xl shadow-sm ${
+															className={`inline-block p-3 sm:p-4 rounded-2xl shadow-none ${
 																message.role === 'user'
 																	? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md'
-																	: 'bg-card text-card-foreground border border-border'
+																	: 'bg-card text-card-foreground border-none ring-0 outline-none'
 															}`}
 														>
 															{message.displayContent &&
@@ -1313,31 +1313,25 @@ export default function ChatPage({ access_token }: Props) {
 																				currentPlayingMessageId ===
 																					message.messageId
 																			) {
+																				// Render placeholder bars but invisible to preserve layout
 																				if (contentIndex === 0) {
-																					// Show placeholder only for first content item
 																					return (
 																						<div
 																							key={contentIndex}
 																							className='flex items-center gap-2 text-muted-foreground'
 																						>
-																							<div className='flex items-center gap-1'>
+																							<div className='flex items-center gap-1 opacity-0'>
 																								<div
 																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0s',
-																									}}
+																									style={{ animationDelay: '0s' }}
 																								/>
 																								<div
 																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0.2s',
-																									}}
+																									style={{ animationDelay: '0.2s' }}
 																								/>
 																								<div
 																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0.4s',
-																									}}
+																									style={{ animationDelay: '0.4s' }}
 																								/>
 																							</div>
 																						</div>
@@ -1368,31 +1362,25 @@ export default function ChatPage({ access_token }: Props) {
 																				currentPlayingMessageId ===
 																					message.messageId
 																			) {
+																				// Render placeholder bars but invisible to preserve layout
 																				if (contentIndex === 0) {
-																					// Show placeholder only for first content item
 																					return (
 																						<div
 																							key={contentIndex}
 																							className='flex items-center gap-2 text-muted-foreground'
 																						>
-																							<div className='flex items-center gap-1'>
+																							<div className='flex items-center gap-1 opacity-0'>
 																								<div
 																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0s',
-																									}}
+																									style={{ animationDelay: '0s' }}
 																								/>
 																								<div
 																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0.2s',
-																									}}
+																									style={{ animationDelay: '0.2s' }}
 																								/>
 																								<div
 																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0.4s',
-																									}}
+																									style={{ animationDelay: '0.4s' }}
 																								/>
 																							</div>
 																						</div>
@@ -1551,31 +1539,8 @@ export default function ChatPage({ access_token }: Props) {
 																						message.messageId;
 
 																				if (isCurrentlyPlaying) {
-																					// Show placeholder while audio is playing
-																					return (
-																						<div className='flex items-center gap-2 text-muted-foreground'>
-																							<div className='flex items-center gap-1'>
-																								<div
-																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0s',
-																									}}
-																								/>
-																								<div
-																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0.2s',
-																									}}
-																								/>
-																								<div
-																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0.4s',
-																									}}
-																								/>
-																							</div>
-																						</div>
-																					);
+																					// Hide placeholder bars entirely during voice playback
+																					return null;
 																				}
 
 																				return (
@@ -1598,19 +1563,16 @@ export default function ChatPage({ access_token }: Props) {
 																	<div
 																		className='absolute inset-0 rounded-lg'
 																		style={{
-																			background:
-																				'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.12) 100%)',
-																			animation:
-																				'gentleBreath 3s ease-in-out infinite',
+																			background: 'transparent',
+																			animation: 'none',
 																		}}
 																	/>
 																	{/* Subtle border pulse */}
 																	<div
-																		className='absolute inset-0 rounded-lg border-2'
+																		className='absolute inset-0 rounded-lg'
 																		style={{
-																			borderColor: 'rgba(16, 185, 129, 0.3)',
-																			animation:
-																				'borderPulse 2.5s ease-in-out infinite',
+																			boxShadow: 'none',
+																			animation: 'none',
 																		}}
 																	/>
 																	{/* Small audio wave indicator */}
