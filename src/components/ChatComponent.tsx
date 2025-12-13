@@ -1313,31 +1313,25 @@ export default function ChatPage({ access_token }: Props) {
 																				currentPlayingMessageId ===
 																					message.messageId
 																			) {
+																				// Render placeholder bars but invisible to preserve layout
 																				if (contentIndex === 0) {
-																					// Show placeholder only for first content item
 																					return (
 																						<div
 																							key={contentIndex}
 																							className='flex items-center gap-2 text-muted-foreground'
 																						>
-																							<div className='flex items-center gap-1'>
+																							<div className='flex items-center gap-1 opacity-0'>
 																								<div
 																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0s',
-																									}}
+																									style={{ animationDelay: '0s' }}
 																								/>
 																								<div
 																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0.2s',
-																									}}
+																									style={{ animationDelay: '0.2s' }}
 																								/>
 																								<div
 																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0.4s',
-																									}}
+																									style={{ animationDelay: '0.4s' }}
 																								/>
 																							</div>
 																						</div>
@@ -1368,31 +1362,25 @@ export default function ChatPage({ access_token }: Props) {
 																				currentPlayingMessageId ===
 																					message.messageId
 																			) {
+																				// Render placeholder bars but invisible to preserve layout
 																				if (contentIndex === 0) {
-																					// Show placeholder only for first content item
 																					return (
 																						<div
 																							key={contentIndex}
 																							className='flex items-center gap-2 text-muted-foreground'
 																						>
-																							<div className='flex items-center gap-1'>
+																							<div className='flex items-center gap-1 opacity-0'>
 																								<div
 																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0s',
-																									}}
+																									style={{ animationDelay: '0s' }}
 																								/>
 																								<div
 																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0.2s',
-																									}}
+																									style={{ animationDelay: '0.2s' }}
 																								/>
 																								<div
 																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0.4s',
-																									}}
+																									style={{ animationDelay: '0.4s' }}
 																								/>
 																							</div>
 																						</div>
@@ -1551,31 +1539,8 @@ export default function ChatPage({ access_token }: Props) {
 																						message.messageId;
 
 																				if (isCurrentlyPlaying) {
-																					// Show placeholder while audio is playing
-																					return (
-																						<div className='flex items-center gap-2 text-muted-foreground'>
-																							<div className='flex items-center gap-1'>
-																								<div
-																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0s',
-																									}}
-																								/>
-																								<div
-																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0.2s',
-																									}}
-																								/>
-																								<div
-																									className='w-1 h-4 bg-emerald-400 rounded-full animate-pulse'
-																									style={{
-																										animationDelay: '0.4s',
-																									}}
-																								/>
-																							</div>
-																						</div>
-																					);
+																					// Hide placeholder bars entirely during voice playback
+																					return null;
 																				}
 
 																				return (
