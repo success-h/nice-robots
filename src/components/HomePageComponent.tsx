@@ -140,6 +140,10 @@ export default function HomePageComponent({ access_token }: Props) {
 			if (selectedAgeType === 'parent' && typeof childName === 'string' && childName.trim().length > 0) {
 				(updateData as any).name = childName.trim();
 			}
+			// For parent registering a child: ensure avatar is cleared
+			if (selectedAgeType === 'parent') {
+				(updateData as any).avatar = null;
+			}
 
 			const userData = await updateUser({
 				data: updateData,
@@ -180,7 +184,12 @@ export default function HomePageComponent({ access_token }: Props) {
 			const attributes: any = {};
 
 			if (data.name !== undefined) attributes.name = data.name;
-			if (data.avatar !== undefined) attributes.avatar = Number(data.avatar);
+			// Pass through null avatar explicitly; only coerce to number when defined
+			if (data.avatar === null) {
+				attributes.avatar = null;
+			} else if (data.avatar !== undefined) {
+				attributes.avatar = Number(data.avatar);
+			}
 			if (data.language !== undefined) attributes.language = data.language;
 			if (data.parent_ok !== undefined) attributes.parent_ok = data.parent_ok;
 			if (data.age_type !== undefined) attributes.age_type = data.age_type;
