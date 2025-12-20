@@ -194,6 +194,20 @@
 	}
 }
 
+/* Global cursor behavior for interactive elements */
+@layer base {
+	button:not(:disabled),
+	a,
+	[role='button'],
+	label[for] {
+		cursor: pointer;
+	}
+	button:disabled,
+	[aria-disabled='true'] {
+		cursor: not-allowed;
+	}
+}
+
 pre {
 	@apply bg-gray-700 p-4 rounded-lg overflow-x-auto text-sm mb-3;
 }
