@@ -201,7 +201,7 @@ export default function CreditsComponent() {
 				</div>
 			</PopoverTrigger>
 			<PopoverContent
-				className='w-80 sm:w-96 p-4 sm:p-5 bg-popover border border-border rounded-2xl shadow-xl'
+				className='w-56 sm:w-64 p-4 sm:p-5 bg-popover border border-border rounded-2xl shadow-xl'
 				align='end'
 			>
 				<div className='space-y-3'>
