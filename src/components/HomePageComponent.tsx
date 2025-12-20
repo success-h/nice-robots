@@ -119,6 +119,10 @@ export default function HomePageComponent({ access_token }: Props) {
 		return activeCharacterIds.includes(characterId);
 	};
 
+	// Hardcoded placeholder avatar for child accounts (parent age type)
+	const PARENT_CHILD_PLACEHOLDER_AVATAR_URL =
+		'https://res.cloudinary.com/dznfy1re0/image/upload/v1766241860/purplehaze9841_Stylish_cartoon__emoji_cartoon_cat_emoji_cartoon_65dae5de-c9e3-4fa5-bb6c-9921d19a27ab_p16ftr.png';
+
 	const handleAgeTypeSelected = async (selectedAgeType: string, childName?: string) => {
 		if (!access_token) {
 			toast.error('Authentication required');
@@ -140,9 +144,9 @@ export default function HomePageComponent({ access_token }: Props) {
 			if (selectedAgeType === 'parent' && typeof childName === 'string' && childName.trim().length > 0) {
 				(updateData as any).name = childName.trim();
 			}
-			// For parent registering a child: ensure avatar is cleared
+			// For parent registering a child: use the hardcoded placeholder avatar URL
 			if (selectedAgeType === 'parent') {
-				(updateData as any).avatar = null;
+				(updateData as any).avatar = PARENT_CHILD_PLACEHOLDER_AVATAR_URL;
 			}
 
 			const userData = await updateUser({
@@ -184,9 +188,11 @@ export default function HomePageComponent({ access_token }: Props) {
 			const attributes: any = {};
 
 			if (data.name !== undefined) attributes.name = data.name;
-			// Pass through null avatar explicitly; only coerce to number when defined
+			// Avatar: pass through null or string data URLs/URLs; coerce numeric IDs when given
 			if (data.avatar === null) {
 				attributes.avatar = null;
+			} else if (typeof data.avatar === 'string') {
+				attributes.avatar = data.avatar;
 			} else if (data.avatar !== undefined) {
 				attributes.avatar = Number(data.avatar);
 			}
