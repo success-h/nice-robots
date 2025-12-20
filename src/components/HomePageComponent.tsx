@@ -119,7 +119,7 @@ export default function HomePageComponent({ access_token }: Props) {
 		return activeCharacterIds.includes(characterId);
 	};
 
-	const handleAgeTypeSelected = async (selectedAgeType: string) => {
+	const handleAgeTypeSelected = async (selectedAgeType: string, childName?: string) => {
 		if (!access_token) {
 			toast.error('Authentication required');
 			return;
@@ -135,6 +135,11 @@ export default function HomePageComponent({ access_token }: Props) {
 						? true
 						: false,
 			};
+
+			// If a parent is registering for a child, send the child's name as the account name
+			if (selectedAgeType === 'parent' && typeof childName === 'string' && childName.trim().length > 0) {
+				(updateData as any).name = childName.trim();
+			}
 
 			const userData = await updateUser({
 				data: updateData,

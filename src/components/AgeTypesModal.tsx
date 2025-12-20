@@ -11,7 +11,7 @@ interface AgeType {
 interface AgeTypeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAgeTypeSelected: (ageType: string) => void;
+  onAgeTypeSelected: (ageType: string, childName?: string) => void | Promise<void>;
   isLoading?: boolean;
 }
 
@@ -24,6 +24,9 @@ const AgeTypeModal: React.FC<AgeTypeModalProps> = ({
   const [ageTypes, setAgeTypes] = useState<AgeType[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fetchError, setFetchError] = useState<string>('');
+  const [selectedAgeType, setSelectedAgeType] = useState<string | null>(null);
+  const [childName, setChildName] = useState<string>('');
+  const [childNameTouched, setChildNameTouched] = useState<boolean>(false);
 
   const defaultAgeTypes: AgeType[] = [
     // Updated 'parent' and 'teen' labels, and removed 'child'
@@ -77,15 +80,39 @@ const AgeTypeModal: React.FC<AgeTypeModalProps> = ({
   const handleAgeTypeClick = async (ageType: string) => {
     if (isSubmitting || isLoading) return;
 
+    // If 'parent' is chosen, reveal child-name input instead of submitting immediately
+    if (ageType === 'parent') {
+      setSelectedAgeType('parent');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await onAgeTypeSelected(ageType);
-      // Only close if successful (onAgeTypeSelected doesn't throw)
       onClose();
     } catch (error) {
       console.error('Error selecting age type:', error);
-      // Error is handled by parent component, but don't close modal on error
-      // so user can try again
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const childNameTrimmed = childName.trim();
+  const isChildNameValid =
+    selectedAgeType !== 'parent' ||
+    (childNameTrimmed.length >= 1 && childNameTrimmed.length <= 40);
+
+  const handleConfirmParent = async () => {
+    if (isSubmitting || isLoading) return;
+    setChildNameTouched(true);
+    if (!isChildNameValid) return;
+
+    setIsSubmitting(true);
+    try {
+      await onAgeTypeSelected('parent', childNameTrimmed);
+      onClose();
+    } catch (error) {
+      console.error('Error selecting age type:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -131,24 +158,65 @@ const AgeTypeModal: React.FC<AgeTypeModalProps> = ({
             </div>
           )}
 
-          {/* Age type buttons */}
+          {/* Age type buttons with inline parent child-name input */}
           <div className="space-y-3">
             {ageTypes.map((ageType) => (
-              <button
-                key={ageType.value}
-                onClick={() => handleAgeTypeClick(ageType.value)}
-                disabled={isSubmitting || isLoading}
-                className="w-full p-3 sm:p-4 border-2 border-pink-200 rounded-xl text-left transition-all duration-200 hover:border-pink-300 hover:bg-pink-50/50 focus:outline-none focus:border-pink-400 focus:bg-pink-50/50 disabled:opacity-50 disabled:cursor-not-allowed group active:scale-[0.98]"
-              >
-                <div className="flex items-center space-x-2 sm:space-x-3">
-                  <span className="text-xl sm:text-2xl group-hover:scale-110 transition-transform duration-200 flex-shrink-0">
-                    {ageType.emoji}
-                  </span>
-                  <span className="text-slate-700 text-sm sm:text-base font-medium group-hover:text-pink-700 transition-colors duration-200">
-                    {ageType.label}
-                  </span>
-                </div>
-              </button>
+              <div key={ageType.value} className="space-y-2">
+                <button
+                  onClick={() => handleAgeTypeClick(ageType.value)}
+                  disabled={isSubmitting || isLoading}
+                  className="w-full p-3 sm:p-4 border-2 border-pink-200 rounded-xl text-left transition-all duration-200 hover:border-pink-300 hover:bg-pink-50/50 focus:outline-none focus:border-pink-400 focus:bg-pink-50/50 disabled:opacity-50 disabled:cursor-not-allowed group active:scale-[0.98]"
+                >
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <span className="text-xl sm:text-2xl group-hover:scale-110 transition-transform duration-200 flex-shrink-0">
+                      {ageType.emoji}
+                    </span>
+                    <span className="text-slate-700 text-sm sm:text-base font-medium group-hover:text-pink-700 transition-colors duration-200">
+                      {ageType.label}
+                    </span>
+                  </div>
+                </button>
+                {ageType.value === 'parent' && selectedAgeType === 'parent' && (
+                  <div className="mt-1">
+                    <label htmlFor="childName" className="block text-sm font-medium text-slate-700 mb-1">
+                      Child’s name
+                    </label>
+                    <input
+                      id="childName"
+                      type="text"
+                      value={childName}
+                      onChange={(e) => setChildName(e.target.value)}
+                      onBlur={() => setChildNameTouched(true)}
+                      placeholder="Child’s first name"
+                      className="w-full rounded-xl border-2 border-pink-200 bg-white text-slate-900 placeholder:text-slate-400 px-3 py-2 focus:outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-300/40"
+                      autoFocus
+                    />
+                    {childNameTouched && !isChildNameValid && (
+                      <p className="mt-1 text-xs text-red-600">Please enter a name (1–40 characters).</p>
+                    )}
+                    <div className="mt-3 flex justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedAgeType(null);
+                          setChildName('');
+                          setChildNameTouched(false);
+                        }}
+                        className="px-3 py-2 rounded-lg border-2 border-pink-200 text-slate-700 hover:bg-pink-50/50"
+                        disabled={isSubmitting || isLoading}
+                      >
+                        Back
+                      </button>
+                      <button
+                        onClick={handleConfirmParent}
+                        disabled={isSubmitting || isLoading || !isChildNameValid}
+                        className="px-4 py-2 rounded-lg bg-pink-500 text-white hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Confirm
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
 
