@@ -56,6 +56,16 @@ export default function ChatPage({ access_token }: Props) {
 	const inlineRelHeadingRef = useRef<HTMLHeadingElement | null>(null);
 	const relTriggerRef = useRef<HTMLButtonElement | null>(null);
 
+	// Formats the relationship phrase for the synthetic first user message.
+	// We keep the general "Be my {type}" pattern, but for any sister variant we enforce "supportive sibling".
+	const getFirstMessageRelationship = (relationship: string) => {
+		const rel = (relationship || '').toLowerCase();
+		if (rel.includes('sister')) {
+			return 'supportive sibling';
+		}
+		return relationship;
+	};
+
 	const {
 		currentChat,
 		updateChatHistory,
@@ -538,7 +548,7 @@ export default function ChatPage({ access_token }: Props) {
 				if (chatData?.data?.id) {
 					const userMessage: Message = {
 						role: 'user',
-						content: `Be my ${selectedRelationship}`,
+						content: `Be my ${getFirstMessageRelationship(selectedRelationship)}`,
 					};
 					const assistantMessage: Message = {
 						role: 'assistant',
@@ -938,7 +948,7 @@ export default function ChatPage({ access_token }: Props) {
 			loadChatHistory();
 			const userMessage: Message = {
 				role: 'user',
-				content: `Be my ${type}`,
+				content: `Be my ${getFirstMessageRelationship(type)}`,
 			};
 			updateChatHistory(userMessage, currentChat.data.id);
 			sendMessage(userMessage, currentChat.data.id);
