@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { useApi } from '@/hooks/useApi';
 import useUserStore, {
-	Message,
-	useModerationHandling,
+  Message,
+  useModerationHandling,
 } from '@/zustand/useStore';
 import { Loader2, Mic, Send, Square, Volume2, VolumeX, X } from 'lucide-react';
 import Image from 'next/image';
@@ -19,7 +19,7 @@ import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { toast } from 'sonner';
 
 type Props = {
-	access_token?: string;
+  access_token?: string;
 };
 
 export default function ChatPage({ access_token }: Props) {
