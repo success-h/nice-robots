@@ -303,7 +303,7 @@ export default function HomePageComponent({ access_token }: Props) {
 						Find your <span className='text-pink-500'>AI buddy!</span>
 					</h3>
 					<p className='mt-1 text-md mb-6 sm:mb-8 text-muted-foreground'>
-						Ethical and empathic virtual friends who listen, support, and never
+						Ethical and empathic virtual friends who listen, support, coach, and never
 						judge.
 					</p>
 
