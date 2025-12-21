@@ -354,7 +354,7 @@ export default function HomePageComponent({ access_token }: Props) {
 
 									<div className='p-3 sm:p-4'>
 										<h4 className='text-lg sm:text-xl font-bold mb-1 text-card-foreground'>
-											{character.attributes.name} {character.attributes.age}
+											{character.attributes.name}
 										</h4>
 										<p className='text-muted-foreground text-xs sm:text-sm line-clamp-2'>
 											{character.attributes.summary}
