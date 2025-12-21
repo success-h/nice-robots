@@ -1851,19 +1851,6 @@ export default function ChatPage({ access_token }: Props) {
 						{/* Control Buttons */}
 						{(isTyping || isSpeaking) && (
 							<div className='hidden lg:flex justify-center mt-3 space-x-2'>
-								{isSpeaking && (
-									<button
-										onClick={toggleMute}
-										className='px-3 py-1 bg-muted text-muted-foreground rounded-lg text-sm hover:bg-muted/80 transition-colors flex items-center space-x-1'
-									>
-										{isMuted ? (
-											<VolumeX className='w-4 h-4' />
-										) : (
-											<Volume2 className='w-4 h-4' />
-										)}
-										<span>{isMuted ? 'Unmute' : 'Mute'}</span>
-									</button>
-								)}
 								<button
 									onClick={() => {
 										setIsTyping(false);
@@ -1881,22 +1868,6 @@ export default function ChatPage({ access_token }: Props) {
 						{/* Mobile interrupt bar */}
 						{(isTyping || isSpeaking) && (
 							<div className='lg:hidden mt-3 flex items-center justify-center gap-2 sm:gap-3'>
-								{isSpeaking && (
-									<button
-										onClick={toggleMute}
-										className='px-3 sm:px-4 py-2 bg-muted text-foreground rounded-xl text-xs sm:text-sm hover:bg-muted/80 transition-colors flex items-center space-x-1.5 active:scale-95 touch-manipulation shadow-md'
-										aria-label={isMuted ? 'Unmute' : 'Mute'}
-									>
-										{isMuted ? (
-											<VolumeX className='w-4 h-4' />
-										) : (
-											<Volume2 className='w-4 h-4' />
-										)}
-										<span className='font-medium'>
-											{isMuted ? 'Unmute' : 'Mute'}
-										</span>
-									</button>
-								)}
 								<button
 									onClick={() => {
 										setIsTyping(false);
