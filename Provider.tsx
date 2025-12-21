@@ -21,7 +21,7 @@ export default function Provider({ children }: { children: ReactNode }) {
   });
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
       <GoogleOAuthProvider clientId={GOOGLE_WEB_CLIENT_ID}>
         <QueryClientProvider client={queryClient}>
           <PlansBootstrapper />

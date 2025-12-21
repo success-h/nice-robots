@@ -9,4 +9,3 @@ export const API_KEY =
 // export const WS_URL = "ws://localhost:4000/socket";
 export const BACKEND_URL = 'https://teen-robots-api-prod.agreeablehill-b67ffd87.centralus.azurecontainerapps.io/api';
 export const WS_URL = "wss://teen-robots-api-prod.agreeablehill-b67ffd87.centralus.azurecontainerapps.io/socket";
-

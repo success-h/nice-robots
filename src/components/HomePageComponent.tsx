@@ -119,7 +119,11 @@ export default function HomePageComponent({ access_token }: Props) {
 		return activeCharacterIds.includes(characterId);
 	};
 
-	const handleAgeTypeSelected = async (selectedAgeType: string) => {
+	// Hardcoded placeholder avatar for child accounts (parent age type)
+	const PARENT_CHILD_PLACEHOLDER_AVATAR_URL =
+		'https://res.cloudinary.com/dznfy1re0/image/upload/v1766241860/purplehaze9841_Stylish_cartoon__emoji_cartoon_cat_emoji_cartoon_65dae5de-c9e3-4fa5-bb6c-9921d19a27ab_p16ftr.png';
+
+	const handleAgeTypeSelected = async (selectedAgeType: string, childName?: string) => {
 		if (!access_token) {
 			toast.error('Authentication required');
 			return;
@@ -135,6 +139,15 @@ export default function HomePageComponent({ access_token }: Props) {
 						? true
 						: false,
 			};
+
+			// If a parent is registering for a child, send the child's name as the account name
+			if (selectedAgeType === 'parent' && typeof childName === 'string' && childName.trim().length > 0) {
+				(updateData as any).name = childName.trim();
+			}
+			// For parent registering a child: use the hardcoded placeholder avatar URL
+			if (selectedAgeType === 'parent') {
+				(updateData as any).avatar = PARENT_CHILD_PLACEHOLDER_AVATAR_URL;
+			}
 
 			const userData = await updateUser({
 				data: updateData,
@@ -175,7 +188,14 @@ export default function HomePageComponent({ access_token }: Props) {
 			const attributes: any = {};
 
 			if (data.name !== undefined) attributes.name = data.name;
-			if (data.avatar !== undefined) attributes.avatar = Number(data.avatar);
+			// Avatar: pass through null or string data URLs/URLs; coerce numeric IDs when given
+			if (data.avatar === null) {
+				attributes.avatar = null;
+			} else if (typeof data.avatar === 'string') {
+				attributes.avatar = data.avatar;
+			} else if (data.avatar !== undefined) {
+				attributes.avatar = Number(data.avatar);
+			}
 			if (data.language !== undefined) attributes.language = data.language;
 			if (data.parent_ok !== undefined) attributes.parent_ok = data.parent_ok;
 			if (data.age_type !== undefined) attributes.age_type = data.age_type;
