@@ -1715,76 +1715,137 @@ export default function ChatPage({ access_token }: Props) {
 							/>
 						)}
 						{!isTyping && !isSpeaking && (
-							<div className='flex items-start justify-center gap-2 sm:gap-3'>
-								{/* Mic Button - Left (wrapped to equalize width with Send) */}
-								<div className='shrink-0 w-10 flex justify-center'>
-									<button
-										onClick={isRecording ? stopRecording : startRecording}
-										disabled={!isChatReady || isTranscribing}
-										className={`inline-flex items-center justify-center w-10 h-10 p-0 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg active:scale-95 touch-manipulation ${
-											isRecording
-												? 'bg-red-500 text-white animate-pulse ring-2 ring-red-200'
-												: isTranscribing
-												? 'bg-yellow-500 text-white ring-2 ring-yellow-200'
-												: 'bg-muted text-muted-foreground hover:bg-muted/80 border border-border'
-										}`}
-										aria-label={
-											isRecording
-												? 'Stop recording'
-												: isTranscribing
-												? 'Transcribing'
-												: 'Start recording'
-										}
-									>
-										{isRecording ? (
-											<Square className='w-4 h-4' />
-										) : isTranscribing ? (
-											<div className='w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent' />
-										) : (
-											<Mic className='w-4 h-4' />
-										)}
-									</button>
-								</div>
-
-								{/* Textarea - Center */}
-								<div className='relative w-full max-w-md'>
-									<textarea
-										ref={textareaRef}
-										value={inputMessage}
-										onChange={(e) => setInputMessage(e.target.value)}
-										onKeyDown={handleKeyDown}
-										onInput={(e) => autoResizeTextarea(e.currentTarget)}
-										placeholder={
-											isRecording
-												? 'Recording audio...'
-												: isTranscribing
-												? 'Transcribing audio...'
-												: 'Type a message...'
-										}
-										disabled={!isChatReady || isRecording || isTranscribing}
-										className='w-full h-11 p-2 text-sm border-2 border-border rounded-lg bg-background dark:bg-muted text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed shadow-sm focus:shadow-md transition-all leading-normal'
-									/>
-								</div>
-
-								{/* Send Button - Right */}
-								{/* Send Button - Right (wrapped to equalize width with Mic) */}
-								<div className='shrink-0 w-10 flex justify-center'>
-									<Button
-										onClick={handleUserMessage}
-										disabled={
-											!isChatReady ||
-											!inputMessage.trim() ||
-											isTyping ||
-											isRecording ||
-											isTranscribing
-										}
-										className='inline-flex items-center justify-center w-10 h-10 p-0 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-full hover:from-emerald-600 hover:to-emerald-700 disabled:bg-muted disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg disabled:shadow-sm active:scale-95 touch-manipulation'
-										aria-label='Send message'
-									>
-										<Send className='w-4 h-4' />
-									</Button>
-								</div>
-							</div>
+							<>
+								{isMobile ? (
+									<div className='flex flex-col items-center'>
+										<div className='relative w-full max-w-md'>
+											<textarea
+												ref={textareaRef}
+												value={inputMessage}
+												onChange={(e) => setInputMessage(e.target.value)}
+												onKeyDown={handleKeyDown}
+												onInput={(e) => autoResizeTextarea(e.currentTarget)}
+												placeholder={
+													isRecording
+														? 'Recording audio...'
+														: isTranscribing
+														? 'Transcribing audio...'
+														: 'Type a message...'
+												}
+												disabled={!isChatReady || isRecording || isTranscribing}
+												className='w-full h-11 p-2 text-sm border-2 border-border rounded-lg bg-background dark:bg-muted text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed shadow-sm focus:shadow-md transition-all leading-normal'
+											/>
+										</div>
+										<div className='mt-2 flex items-center justify-center gap-3'>
+											<button
+												onClick={isRecording ? stopRecording : startRecording}
+												disabled={!isChatReady || isTranscribing}
+												className={`inline-flex items-center justify-center w-10 h-10 p-0 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg active:scale-95 touch-manipulation ${
+													isRecording
+														? 'bg-red-500 text-white animate-pulse ring-2 ring-red-200'
+														: isTranscribing
+														? 'bg-yellow-500 text-white ring-2 ring-yellow-200'
+														: 'bg-muted text-muted-foreground hover:bg-muted/80 border border-border'
+												}`}
+												aria-label={
+													isRecording
+														? 'Stop recording'
+														: isTranscribing
+														? 'Transcribing'
+														: 'Start recording'
+												}
+											>
+												{isRecording ? (
+													<Square className='w-4 h-4' />
+												) : isTranscribing ? (
+													<div className='w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent' />
+												) : (
+													<Mic className='w-4 h-4' />
+												)}
+											</button>
+											<Button
+												onClick={handleUserMessage}
+												disabled={
+													!isChatReady ||
+													!inputMessage.trim() ||
+													isTyping ||
+													isRecording ||
+													isTranscribing
+												}
+												className='inline-flex items-center justify-center w-10 h-10 p-0 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-full hover:from-emerald-600 hover:to-emerald-700 disabled:bg-muted disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg disabled:shadow-sm active:scale-95 touch-manipulation'
+												aria-label='Send message'
+											>
+												<Send className='w-4 h-4' />
+											</Button>
+										</div>
+									</div>
+								) : (
+									<div className='flex items-start justify-center gap-2 sm:gap-3'>
+										<div className='shrink-0 w-10 flex justify-center'>
+											<button
+												onClick={isRecording ? stopRecording : startRecording}
+												disabled={!isChatReady || isTranscribing}
+												className={`inline-flex items-center justify-center w-10 h-10 p-0 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg active:scale-95 touch-manipulation ${
+													isRecording
+														? 'bg-red-500 text-white animate-pulse ring-2 ring-red-200'
+														: isTranscribing
+														? 'bg-yellow-500 text-white ring-2 ring-yellow-200'
+														: 'bg-muted text-muted-foreground hover:bg-muted/80 border border-border'
+												}`}
+												aria-label={
+													isRecording
+														? 'Stop recording'
+														: isTranscribing
+														? 'Transcribing'
+														: 'Start recording'
+												}
+											>
+												{isRecording ? (
+													<Square className='w-4 h-4' />
+												) : isTranscribing ? (
+													<div className='w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent' />
+												) : (
+													<Mic className='w-4 h-4' />
+												)}
+											</button>
+										</div>
+										<div className='relative w-full max-w-md'>
+											<textarea
+												ref={textareaRef}
+												value={inputMessage}
+												onChange={(e) => setInputMessage(e.target.value)}
+												onKeyDown={handleKeyDown}
+												onInput={(e) => autoResizeTextarea(e.currentTarget)}
+												placeholder={
+													isRecording
+														? 'Recording audio...'
+														: isTranscribing
+														? 'Transcribing audio...'
+														: 'Type a message...'
+												}
+												disabled={!isChatReady || isRecording || isTranscribing}
+												className='w-full h-11 p-2 text-sm border-2 border-border rounded-lg bg-background dark:bg-muted text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed shadow-sm focus:shadow-md transition-all leading-normal'
+											/>
+										</div>
+										<div className='shrink-0 w-10 flex justify-center'>
+											<Button
+												onClick={handleUserMessage}
+												disabled={
+													!isChatReady ||
+													!inputMessage.trim() ||
+													isTyping ||
+													isRecording ||
+													isTranscribing
+												}
+												className='inline-flex items-center justify-center w-10 h-10 p-0 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-full hover:from-emerald-600 hover:to-emerald-700 disabled:bg-muted disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg disabled:shadow-sm active:scale-95 touch-manipulation'
+												aria-label='Send message'
+											>
+												<Send className='w-4 h-4' />
+											</Button>
+										</div>
+									</div>
+								)}
+							</>
 						)}
 
 						{/* Control Buttons */}
