@@ -1283,8 +1283,11 @@ export default function ChatPage({ access_token }: Props) {
 																	: 'bg-card text-card-foreground border-none ring-0 outline-none'
 															}`}
 														>
-															{message.displayContent &&
-															message.displayContent.length > 0 ? (
+															{/* Hide entire assistant message content while its voice is playing */}
+															{response_type === 'voice' &&
+															message.messageId &&
+															currentPlayingMessageId === message.messageId ? null : message.displayContent &&
+															  message.displayContent.length > 0 ? (
 																message.displayContent.map(
 																	(item, contentIndex) => {
 																		if (item.type === 'code') {
@@ -1292,10 +1295,8 @@ export default function ChatPage({ access_token }: Props) {
 																				<div
 																					key={contentIndex}
 																					dir='ltr'
-																					style={{
-																						textAlign: 'left',
-																						maxWidth: '100%',
-																					}}
+																					className='w-full max-w-full overflow-x-auto max-h-80 overflow-y-auto sm:max-h-none'
+																					style={{ textAlign: 'left' }}
 																				>
 																					<SyntaxHighlighter
 																						language='python'
@@ -1308,6 +1309,7 @@ export default function ChatPage({ access_token }: Props) {
 																							overflowX: 'auto',
 																							whiteSpace: 'pre-wrap',
 																							wordBreak: 'break-word',
+																							overflowWrap: 'anywhere',
 																						}}
 																						wrapLongLines
 																					>
@@ -1508,12 +1510,8 @@ export default function ChatPage({ access_token }: Props) {
 																									<div
 																										key={idx}
 																										dir='ltr'
-																										style={{
-																											textAlign: 'left',
-																											maxWidth: '100%',
-																											marginTop: '0.75rem',
-																											marginBottom: '0.75rem',
-																										}}
+																										className='w-full max-w-full overflow-x-auto max-h-80 overflow-y-auto sm:max-h-none'
+																										style={{ textAlign: 'left', marginTop: '0.75rem', marginBottom: '0.75rem' }}
 																									>
 																										<SyntaxHighlighter
 																											language='python'
@@ -1524,6 +1522,7 @@ export default function ChatPage({ access_token }: Props) {
 																												overflowX: 'auto',
 																												whiteSpace: 'pre-wrap',
 																												wordBreak: 'break-word',
+																												overflowWrap: 'anywhere',
 																											}}
 																											wrapLongLines
 																										>
