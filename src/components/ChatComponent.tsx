@@ -235,7 +235,7 @@ export default function ChatPage({ access_token }: Props) {
 				const parsedData = await response.json();
 
 				const examplesBlock: string = parsedData.data.examples?.length
-					? `\n\n**Examples:**\n${parsedData.data.examples.join('\n\n')}`
+					? `\n\n**Follow Up:**\n${parsedData.data.examples.join('\n\n')}`
 					: '';
 				const linksBlock: string = parsedData.data.links?.length
 					? `\n\n**Links:**\n${parsedData.data.links.join('\n')}`
@@ -377,7 +377,7 @@ export default function ChatPage({ access_token }: Props) {
 					}
 					assistantMessage.displayContent.push({
 						type: 'html',
-						value: `<br/><br/><strong>Examples:</strong>`,
+						value: `<br/><br/><strong>Follow Up:</strong>`,
 					});
 					parsedData.data.examples.forEach((example: string) => {
 						const codeMatch = example.match(
