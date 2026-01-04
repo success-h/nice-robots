@@ -16,20 +16,8 @@ type LoaderProps = {
 const CLOUDINARY_UPLOAD_SEGMENT = '/image/upload/';
 
 export default function cloudinaryLoader({ src, width, quality }: LoaderProps): string {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/2e745d89-c8fd-4a90-8147-0602bacdba14',{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H1',location:'cloudinaryLoader.ts:entry',message:'loader entry',data:{src,width,quality},timestamp:Date.now()})
-  }).catch(()=>{});
-  // #endregion
   // If src is not an absolute URL, just return as-is (let it be served statically)
   if (!/^https?:\/\//i.test(src)) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/2e745d89-c8fd-4a90-8147-0602bacdba14',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H1',location:'cloudinaryLoader.ts:relative',message:'relative src passthrough',data:{src,width},timestamp:Date.now()})
-    }).catch(()=>{});
-    // #endregion
     return src;
   }
 
@@ -37,12 +25,6 @@ export default function cloudinaryLoader({ src, width, quality }: LoaderProps): 
   const idx = src.indexOf(CLOUDINARY_UPLOAD_SEGMENT);
   if (idx === -1) {
     // Not a Cloudinary URL, return as-is so Next/Image uses it directly
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/2e745d89-c8fd-4a90-8147-0602bacdba14',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H2',location:'cloudinaryLoader.ts:non-cloudinary',message:'non-cloudinary passthrough',data:{src,width},timestamp:Date.now()})
-    }).catch(()=>{});
-    // #endregion
     return src;
   }
 
@@ -51,24 +33,12 @@ export default function cloudinaryLoader({ src, width, quality }: LoaderProps): 
 
   // If there are already transformations (e.g. starts with f_ / q_ / w_), leave as-is
   if (/^(?:c_|f_|q_|w_)/.test(after)) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/2e745d89-c8fd-4a90-8147-0602bacdba14',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H3',location:'cloudinaryLoader.ts:already-transformed',message:'transform exists, passthrough',data:{srcAfter:after.slice(0,30),width},timestamp:Date.now()})
-    }).catch(()=>{});
-    // #endregion
     return src;
   }
 
   const q = typeof quality === 'number' ? quality : 75;
   const transform = `f_auto,q_${q},w_${width}`;
   const out = `${before}${encodeURIComponent(transform)}/${after}`;
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/2e745d89-c8fd-4a90-8147-0602bacdba14',{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H1',location:'cloudinaryLoader.ts:exit',message:'loader exit',data:{out,width},timestamp:Date.now()})
-  }).catch(()=>{});
-  // #endregion
   return out;
 }
 

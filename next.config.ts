@@ -7,6 +7,38 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Permissions-Policy',
+            value: [
+              'geolocation=()',
+              'camera=()',
+              // allow mic on our origin (disables in iframes/other origins)
+              'microphone=(self)',
+              'bluetooth=()',
+              'usb=()',
+              'hid=()',
+              'serial=()',
+              'midi=()',
+              'xr-spatial-tracking=()',
+              'screen-wake-lock=()',
+              'local-network=()',
+              'publickey-credentials-get=()',
+              'payment=()',
+              'browsing-topics=()',
+              'interest-cohort=()',
+            ].join(', '),
+          },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+        ],
+      },
+    ];
+  },
   images: {
     // Use custom Cloudinary loader to avoid /_next/image proxy and still keep responsive srcset.
     loader: 'custom',
