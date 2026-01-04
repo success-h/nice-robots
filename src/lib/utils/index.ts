@@ -215,22 +215,10 @@ export function optimizeCloudinaryUrl(
   width?: number,
   opts: { fill?: boolean } = {}
 ): string {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/2e745d89-c8fd-4a90-8147-0602bacdba14',{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H4',location:'utils/index.ts:optimizeCloudinaryUrl:entry',message:'optimize entry',data:{url, width, fill: !!opts?.fill},timestamp:Date.now()})
-  }).catch(()=>{});
-  // #endregion
   if (!url) return '';
   const marker = '/image/upload/';
   const idx = url.indexOf(marker);
   if (idx === -1) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/2e745d89-c8fd-4a90-8147-0602bacdba14',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H4',location:'utils/index.ts:optimizeCloudinaryUrl:non-cloudinary',message:'non-cloudinary passthrough',data:{url},timestamp:Date.now()})
-    }).catch(()=>{});
-    // #endregion
     return String(url);
   }
 
@@ -251,11 +239,5 @@ export function optimizeCloudinaryUrl(
   }
 
   const out = `${before}${parts.join(',')}/${after}`;
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/2e745d89-c8fd-4a90-8147-0602bacdba14',{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H4',location:'utils/index.ts:optimizeCloudinaryUrl:exit',message:'optimize exit',data:{out},timestamp:Date.now()})
-  }).catch(()=>{});
-  // #endregion
   return out;
 }
