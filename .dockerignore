@@ -1,0 +1,29 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn.lock
+pnpm-lock.yaml
+
+# Build output
+.next
+.next/cache
+out
+dist
+
+# Env and secrets
+.env
+.env.*
+
+# VCS / editors
+.git
+.gitignore
+.dockerignore
+.DS_Store
+.vscode
+.idea
+
+# Coverage / logs
+coverage
+*.log
+
+

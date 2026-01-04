@@ -364,7 +364,7 @@ export default function ChatSidebar({
 					className='flex cursor-pointer items-center space-x-3 w-full text-left text-sidebar-foreground hover:text-sidebar-foreground p-2 rounded-lg hover:bg-sidebar-accent transition-colors'
 				>
 					<Image
-						src={user?.data?.attributes?.avatar || '/default-avatar.png'}
+						src={user?.data?.attributes?.avatar || '/default-avatar.svg'}
 						alt={character?.attributes?.name || 'profile'}
 						width={36}
 						height={36}

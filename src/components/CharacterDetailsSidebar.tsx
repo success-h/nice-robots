@@ -11,6 +11,7 @@ import useUserStore from '@/zustand/useStore';
 import { ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import { MdLocationPin } from 'react-icons/md';
+import { optimizeCloudinaryUrl } from '@/lib/utils';
 
 interface CharacterDetailsSidebarProps {
 	isRightSidebarOpen: boolean;
@@ -60,7 +61,7 @@ export default function CharacterDetailsSidebar({
 										<Image
 											key={item.id}
 											className='h-full w-full object-cover'
-											src={item?.attributes?.url}
+											src={optimizeCloudinaryUrl(item?.attributes?.url, 600, { fill: true })}
 											height={500}
 											width={300}
 											alt={item?.type}

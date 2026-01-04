@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { toast } from 'sonner';
+import { optimizeCloudinaryUrl } from '@/lib/utils';
 
 type Props = {
   access_token?: string;
@@ -1226,8 +1227,10 @@ export default function ChatPage({ access_token }: Props) {
 													<div className='w-8 h-8 sm:w-10 sm:h-10 rounded-full ring-2 ring-slate-200 overflow-hidden bg-gradient-to-br from-pink-100 to-purple-100'>
 														<Image
 															src={
-																character?.attributes?.avatar ||
-																'/default-avatar.png'
+                                                                optimizeCloudinaryUrl(
+                                                                    character?.attributes?.avatar || '/default-avatar.svg',
+																	80
+																)
 															}
 															alt={
 																character?.attributes?.name ||
@@ -1242,8 +1245,10 @@ export default function ChatPage({ access_token }: Props) {
 													<div className='w-8 h-8 sm:w-10 sm:h-10 rounded-full ring-2 ring-emerald-200 overflow-hidden bg-gradient-to-br from-emerald-100 to-blue-100'>
 														<Image
 															src={
-																user?.data?.attributes?.avatar ||
-																'/default-avatar.png'
+                                                                optimizeCloudinaryUrl(
+                                                                    user?.data?.attributes?.avatar || '/default-avatar.svg',
+																	80
+																)
 															}
 															alt={
 																character?.attributes?.name ||
@@ -1652,7 +1657,7 @@ export default function ChatPage({ access_token }: Props) {
 									<div className='w-10 h-10 rounded-full ring-2 ring-slate-200 overflow-hidden bg-gradient-to-br from-pink-100 to-purple-100'>
 										<Image
 											src={
-												character?.attributes?.avatar || '/default-avatar.png'
+                                                character?.attributes?.avatar || '/default-avatar.svg'
 											}
 											alt={character?.attributes?.name || 'Character avatar'}
 											width={40}

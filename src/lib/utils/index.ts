@@ -201,3 +201,61 @@ export const parseStreamingResponse = async (
     reader.releaseLock();
   }
 };
+
+/**
+ * Inserts Cloudinary transformations into a Cloudinary URL.
+ * If the URL is not a Cloudinary `image/upload` URL, returns the original URL.
+ *
+ * @param url  Original image URL
+ * @param width Optional target width (px)
+ * @param opts  Optional flags (e.g., { fill: true } to add c_fill,g_auto)
+ */
+export function optimizeCloudinaryUrl(
+  url: string | null | undefined,
+  width?: number,
+  opts: { fill?: boolean } = {}
+): string {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/2e745d89-c8fd-4a90-8147-0602bacdba14',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H4',location:'utils/index.ts:optimizeCloudinaryUrl:entry',message:'optimize entry',data:{url, width, fill: !!opts?.fill},timestamp:Date.now()})
+  }).catch(()=>{});
+  // #endregion
+  if (!url) return '';
+  const marker = '/image/upload/';
+  const idx = url.indexOf(marker);
+  if (idx === -1) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/2e745d89-c8fd-4a90-8147-0602bacdba14',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H4',location:'utils/index.ts:optimizeCloudinaryUrl:non-cloudinary',message:'non-cloudinary passthrough',data:{url},timestamp:Date.now()})
+    }).catch(()=>{});
+    // #endregion
+    return String(url);
+  }
+
+  const before = url.slice(0, idx + marker.length);
+  const after = url.slice(idx + marker.length);
+
+  const parts: string[] = ['f_auto', 'q_auto'];
+  if (typeof width === 'number' && Number.isFinite(width) && width > 0) {
+    parts.push(`w_${Math.floor(width)}`);
+  }
+  if (opts?.fill) {
+    parts.push('c_fill', 'g_auto');
+  }
+
+  // Avoid duplicating transforms if they already exist
+  if (after.startsWith('f_auto') || after.startsWith('q_auto') || /\/[a-z]+_/.test(after)) {
+    return url;
+  }
+
+  const out = `${before}${parts.join(',')}/${after}`;
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/2e745d89-c8fd-4a90-8147-0602bacdba14',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'H4',location:'utils/index.ts:optimizeCloudinaryUrl:exit',message:'optimize exit',data:{out},timestamp:Date.now()})
+  }).catch(()=>{});
+  // #endregion
+  return out;
+}

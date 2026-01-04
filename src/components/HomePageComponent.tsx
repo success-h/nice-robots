@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import SignInModal from '../components/SignInModal';
 import { useApi } from '../hooks/useApi';
 import useUserStore, { CharacterData } from '../zustand/useStore';
+import { optimizeCloudinaryUrl } from '@/lib/utils';
 
 const getCharacters = async () => {
 	try {
@@ -259,10 +260,10 @@ export default function HomePageComponent({ access_token }: Props) {
 											className='flex items-center space-x-2 hover:opacity-80 transition-opacity'
 										>
 											<Image
-												src={
-													user?.data?.attributes?.avatar ||
-													'/default-avatar.png'
-												}
+                                                src={
+                                                    user?.data?.attributes?.avatar ||
+                                                    '/default-avatar.svg'
+                                                }
 												alt='Profile'
 												width={32}
 												height={32}
@@ -327,7 +328,7 @@ export default function HomePageComponent({ access_token }: Props) {
 
 									<div className='relative'>
 										<Image
-											src={character.attributes.avatar}
+											src={optimizeCloudinaryUrl(character.attributes.avatar, 640)}
 											alt={character.attributes.name}
 											width={300}
 											height={400}

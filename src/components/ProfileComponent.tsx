@@ -380,7 +380,7 @@ export default function ProfilePage({ access_token }: Props) {
 						<div className='relative mb-6 inline-block'>
 							<div className='absolute inset-0 bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 rounded-full blur-xl opacity-30 animate-pulse'></div>
 							<Image
-								src={user?.data?.attributes?.avatar || '/default-avatar.png'}
+								src={user?.data?.attributes?.avatar || '/default-avatar.svg'}
 								alt='Profile'
 								width={120}
 								height={120}

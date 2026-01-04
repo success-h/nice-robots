@@ -28,6 +28,19 @@ export default function RootLayout({
 			<body
 				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
 			>
+				{/* Runtime env injection for client-side config override */}
+				<script
+					dangerouslySetInnerHTML={{
+						__html: `window.__ENV=${JSON.stringify({
+							NEXT_PUBLIC_GOOGLE_CLIENT_ID:
+								process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '',
+							NEXT_PUBLIC_BACKEND_URL:
+								process.env.NEXT_PUBLIC_BACKEND_URL ?? '',
+							NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL ?? '',
+							NODE_ENV: process.env.NODE_ENV ?? '',
+						})}`,
+					}}
+				/>
 				<Provider>{children}</Provider>
 			</body>
 		</html>
