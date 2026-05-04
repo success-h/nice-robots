@@ -29,6 +29,7 @@ import {
 import useUserStore, { CharacterData } from '@/zustand/useStore';
 import { User } from 'lucide-react';
 import Link from 'next/link';
+import CompanyInfo from '@/components/CompanyInfo';
 import { useRouter } from 'next/navigation';
 
 interface HomeSidebarProps {
@@ -206,8 +207,11 @@ export default function HomeSidebar({
 				</SidebarMenu>
 			</SidebarContent>
 
-			{user?.data && (
-				<SidebarFooter className='p-6 pt-4 border-t border-sidebar-border'>
+			<SidebarFooter className='p-6 pt-4 border-t border-sidebar-border space-y-3'>
+				{user?.data && (
+					<CompanyInfo />
+				)}
+				{user?.data && (
 					<Link
 						href='/profile'
 						onClick={closeMobileMenu}
@@ -216,8 +220,11 @@ export default function HomeSidebar({
 						<User className='w-4 h-4' />
 						<span>Profile settings</span>
 					</Link>
-				</SidebarFooter>
-			)}
+				)}
+				{!user?.data && (
+					<CompanyInfo />
+				)}
+			</SidebarFooter>
 		</Sidebar>
 	);
 }

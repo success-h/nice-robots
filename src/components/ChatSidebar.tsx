@@ -34,6 +34,7 @@ import {
 } from '@/utils/planHelpers';
 import useUserStore from '@/zustand/useStore';
 import { Edit2, Loader2, Plus } from 'lucide-react';
+import CompanyInfo from '@/components/CompanyInfo';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -358,7 +359,8 @@ export default function ChatSidebar({
 			</SidebarContent>
 
 			{/* Profile Settings */}
-			<SidebarFooter className='p-4 border-t border-sidebar-border bg-sidebar-accent/50'>
+			<SidebarFooter className='p-4 border-t border-sidebar-border bg-sidebar-accent/50 space-y-3'>
+				<CompanyInfo />
 				<Link
 					href='/profile'
 					className='flex cursor-pointer items-center space-x-3 w-full text-left text-sidebar-foreground hover:text-sidebar-foreground p-2 rounded-lg hover:bg-sidebar-accent transition-colors'
