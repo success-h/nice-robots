@@ -1,5 +1,10 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Deploy
+
+- **GCP (existing):** `make deploy` — see `./deploy.sh`
+- **Azure (Container Apps):** full guide in **API** repo `nice-robots-api/docs/deploy-azure.md` (backend first), short FE steps: [docs/deploy-azure.md](docs/deploy-azure.md)
+
 ## Getting Started
 
 First, run the development server:
