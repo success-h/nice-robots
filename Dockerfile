@@ -18,8 +18,8 @@ ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
 ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51SJxJnRcwh68nPPaj9lNSEvmvirFW7ocWl5aeljrBpsUNMMrXPO9JgNZbSZW1nyFViVHgxCWlqkMNYwyaSASYg7600bHNA92K4
 ENV NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
 # Inject public backend URLs for client bundle (defaults can be overridden via --build-arg)
-ARG NEXT_PUBLIC_BACKEND_URL=https://teen-robots-api-prod.agreeablehill-b67ffd87.centralus.azurecontainerapps.io/api
-ARG NEXT_PUBLIC_WS_URL=wss://teen-robots-api-prod.agreeablehill-b67ffd87.centralus.azurecontainerapps.io/socket
+ARG NEXT_PUBLIC_BACKEND_URL=https://nicecoachapi-990714713850.us-east1.run.app/api
+ARG NEXT_PUBLIC_WS_URL=wss://nicecoachapi-990714713850.us-east1.run.app/socket
 ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
 ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
 COPY --from=deps /app/node_modules ./node_modules
