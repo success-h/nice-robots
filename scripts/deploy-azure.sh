@@ -30,6 +30,9 @@ fi
 : "${AZURE_CLIENT_SECRET:?set AZURE_CLIENT_SECRET in .env.deploy}"
 : "${AZURE_SUBSCRIPTION_ID:?set AZURE_SUBSCRIPTION_ID in .env.deploy}"
 
+# shellcheck source=/dev/null
+source "$ROOT/scripts/_azure_common.sh"
+
 TAG="${TAG:-$(date +%Y%m%d-%H%M%S)-$(git rev-parse --short HEAD)}"
 DOCKERFILE="${DOCKERFILE:-Dockerfile}"
 
@@ -53,15 +56,7 @@ REMOTE_IMAGE="${ACR_NAME}.azurecr.io/${IMAGE_REPO}:${TAG}"
 
 echo "==> Azure deploy (FE): tag=${TAG} image=${REMOTE_IMAGE}"
 
-echo "==> az login (service principal)"
-az login --service-principal \
-  -u "$AZURE_CLIENT_ID" \
-  -p "$AZURE_CLIENT_SECRET" \
-  --tenant "$AZURE_TENANT_ID" \
-  --only-show-errors
-
-echo "==> az account set"
-az account set --subscription "$AZURE_SUBSCRIPTION_ID" --only-show-errors
+azure_ensure_logged_in
 
 echo "==> az acr login (${ACR_NAME})"
 az acr login --name "$ACR_NAME" --only-show-errors
